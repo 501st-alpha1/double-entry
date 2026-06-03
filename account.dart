@@ -3,7 +3,8 @@
 class Account {
   final String id;
 
-  /// The full colon-separated Ledger account name, e.g. "assets:bank:checking"
+  /// The full colon-separated Ledger account name, e.g. "Assets:Bank:Checking".
+  /// Enter with proper capitalization as it should appear in the Ledger file.
   final String ledgerName;
 
   /// The YNAB account UUID, null if this account is Ledger-only (e.g. budget mirrors)
@@ -22,13 +23,13 @@ class Account {
   /// The display name: prefers YNAB name if available, otherwise the Ledger name.
   String get displayName => ynabName ?? ledgerName;
 
-  /// Derives the corresponding budget mirror account by convention.
+  /// Derives the corresponding budget mirror account name by convention.
   /// e.g. "Expenses:Food" -> "Assets:Budget:Food"
   /// Returns null if this account is not an expenses account.
   /// TODO: support custom patterns here.
   String? get budgetMirrorLedgerName {
-    if (!ledgerName.startsWith('Expenses:')) return null;
-    final subcategory = ledgerName.substring('Expenses:'.length);
+    if (!ledgerName.toLowerCase().startsWith('expenses:')) return null;
+    final subcategory = ledgerName.substring(ledgerName.indexOf(':') + 1);
     return 'Assets:Budget:$subcategory';
   }
 
