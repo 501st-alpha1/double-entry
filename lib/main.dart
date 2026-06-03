@@ -1,12 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app.dart';
+import 'database/database_provider.dart';
 
-void main() {
+void main() async {
+  // Required when doing async work before runApp.
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Open the database before the app starts so databaseProvider is ready.
+  final db = await openAppDatabase();
+
   runApp(
-    // ProviderScope is required by Riverpod and wraps the entire app.
-    const ProviderScope(
-      child: DoubleEntryApp(),
+    ProviderScope(
+      overrides: [
+        // Override the placeholder with the real database instance.
+        databaseProvider.overrideWithValue(db),
+      ],
+      child: const DoubleEntryApp(),
     ),
   );
 }
