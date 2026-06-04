@@ -17,7 +17,7 @@ class PostingFormRow {
 
   /// Parses amountRaw to milliunits. Returns null if invalid or empty.
   int? get amountMilliunits {
-    final cleaned = amountRaw.replaceAll(RegExp(r'[^\d.]'), '');
+    final cleaned = amountRaw.replaceAll(RegExp(r'[^\d.\-]'), '');
     final parsed = double.tryParse(cleaned);
     if (parsed == null) return null;
     return (parsed * 1000).round();
