@@ -1,16 +1,27 @@
-import 'package:drift/drift.dart' as drift show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:uuid/uuid.dart';
-import '../../database/dao_providers.dart';
-import '../../database/database.dart' as db;
 import '../../models/models.dart';
+import '../../database/dao_providers.dart';
+import '../../database/database.dart' show AccountRow, PayeeRow;
 import 'transaction_form_state.dart';
-import '../../widgets/payee_typeahead.dart';
-import '../../widgets/account_typeahead.dart';
+import 'transaction_form_notifier.dart';
 
-const _uuid = Uuid();
+/// Converts a Drift [PayeeRow] to a minimal model [Payee] for use in the form.
+/// Templates are not loaded here — selectPayee in the notifier handles that.
+Payee _payeeRowToModel(PayeeRow row) => Payee(
+      id: row.id,
+      name: row.name,
+      templates: const [],
+    );
+
+/// Converts a Drift [AccountRow] to a model [Account].
+Account _accountRowToModel(AccountRow row) => Account(
+      id: row.id,
+      ledgerName: row.ledgerName,
+      ynabId: row.ynabId,
+      ynabName: row.ynabName,
+    );
 
 class TransactionScreen extends ConsumerWidget {
   const TransactionScreen({super.key});
@@ -18,195 +29,83 @@ class TransactionScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final formState = ref.watch(transactionFormProvider);
-    final notifier = ref.read(transactionFormProvider.notifier);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('New Transaction'),
+        actions: [
+          TextButton(
+            onPressed: formState.isValid
+                ? () => _save(context, ref, saveAndNew: false)
+                : null,
+            child: const Text('Save'),
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Type selector ──────────────────────────
-            _TypeSelector(
-              value: formState.type,
-              onChanged: notifier.setType,
-            ),
+            // Error banner
+            if (formState.error != null)
+              _ErrorBanner(message: formState.error!),
+
+            // Transaction type selector
+            _TypeSelector(),
             const SizedBox(height: 16),
 
-            // ── Date & time row ────────────────────────
-            Row(
-              children: [
-                Expanded(
-                  child: _DateField(
-                    date: formState.date,
-                    onChanged: notifier.setDate,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _TimeField(
-                    time: formState.time,
-                    onChanged: notifier.setTime,
-                  ),
-                ),
-              ],
-            ),
+            // Date and time row
+            _DateTimeRow(),
             const SizedBox(height: 16),
 
-            // ── Payee ──────────────────────────────────
-            PayeeTypeahead(
-              initialValue: formState.payeeNameRaw,
-              onSelected: (payee, name) => notifier.setPayee(payee, name),
-            ),
+            // Payee field
+            _PayeeField(),
             const SizedBox(height: 16),
 
-            // ── Posting rows ───────────────────────────
-            _PostingRows(
-              rows: formState.postingRows,
-              type: formState.type,
-            ),
+            // Posting rows
+            _PostingRowList(),
             const SizedBox(height: 8),
-            TextButton.icon(
-              onPressed: notifier.addPostingRow,
-              icon: const Icon(Icons.add),
-              label: const Text('Add posting'),
-            ),
 
-            // ── Running total (shown for splits) ───────
-            if (formState.postingRows.length > 1)
-              _RunningTotal(totalMilliunits: formState.totalMilliunits),
-
+            // Add posting button (only for split-capable types)
+            if (formState.type != TransactionType.transfer)
+              TextButton.icon(
+                onPressed: () => ref
+                    .read(transactionFormProvider.notifier)
+                    .addPostingRow(),
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Add posting'),
+              ),
             const SizedBox(height: 16),
 
-            // ── Note ───────────────────────────────────
-            TextField(
-              decoration: const InputDecoration(
-                labelText: 'Note',
-                hintText: 'Optional',
-              ),
-              onChanged: notifier.setNote,
-              maxLines: 2,
-            ),
+            // Running total
+            _RunningTotal(),
             const SizedBox(height: 16),
 
-            // ── Save payee defaults ────────────────────
-            if (formState.payee == null && formState.payeeNameRaw.isNotEmpty)
-              CheckboxListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Save as default for this payee'),
-                value: formState.savePayeeDefaults,
-                onChanged: (v) => notifier.setSavePayeeDefaults(v ?? false),
-              ),
-
+            // Note field
+            _NoteField(),
             const SizedBox(height: 24),
 
-            // ── Action buttons ─────────────────────────
-            Row(
-              children: [
-                Expanded(
-                  child: FilledButton(
-                    onPressed: formState.isValid
-                        ? () => _save(context, ref, andNew: false)
-                        : null,
-                    child: const Text('Save'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: formState.isValid
-                        ? () => _save(context, ref, andNew: true)
-                        : null,
-                    child: const Text('Save & New'),
-                  ),
-                ),
-              ],
-            ),
+            // Save buttons
+            _SaveButtons(),
           ],
         ),
       ),
     );
   }
 
-  Future<void> _save(
-    BuildContext context,
-    WidgetRef ref, {
-    required bool andNew,
-  }) async {
-    final formState = ref.read(transactionFormProvider);
+  Future<void> _save(BuildContext context, WidgetRef ref,
+      {required bool saveAndNew}) async {
     final notifier = ref.read(transactionFormProvider.notifier);
-    final transactionDao = ref.read(transactionDaoProvider);
-    final payeeDao = ref.read(payeeDaoProvider);
-
-    final txId = _uuid.v4();
-    final now = DateTime.now();
-
-    // Save payee defaults if requested and payee is new
-    if (formState.savePayeeDefaults && formState.payee == null) {
-      final payeeId = _uuid.v4();
-      final templateId = _uuid.v4();
-
-      await payeeDao.upsertPayee(db.PayeesCompanion.insert(
-        id: payeeId,
-        name: formState.payeeNameRaw,
-      ));
-      await payeeDao.upsertTemplate(db.PayeeTemplatesCompanion.insert(
-        id: templateId,
-        payeeId: payeeId,
-        name: 'default',
-        transactionType: formState.type.name,
-      ));
-
-      for (var i = 0; i < formState.postingRows.length; i++) {
-        final row = formState.postingRows[i];
-        if (row.account == null) continue;
-        await payeeDao.upsertPostingTemplate(
-          db.PostingTemplatesCompanion.insert(
-            id: _uuid.v4(),
-            payeeTemplateId: templateId,
-            accountId: row.account!.id,
-            sortOrder: drift.Value(i),
-          ),
-        );
+    final success = await notifier.save();
+    if (success && context.mounted) {
+      if (saveAndNew) {
+        // Pop and immediately push a fresh form
+        context.pop();
+        context.push('/transaction/new');
+      } else {
+        context.pop();
       }
-    }
-
-    // Insert the transaction
-    await transactionDao.insertTransaction(
-      db.TransactionsCompanion.insert(
-        id: txId,
-        type: formState.type.name,
-        date: formState.date,
-        time: formState.time,
-        payeeName: formState.payeeNameRaw,
-        note: drift.Value(formState.note.isEmpty ? null : formState.note),
-        createdAt: now,
-      ),
-    );
-
-    // Insert real postings
-    for (var i = 0; i < formState.postingRows.length; i++) {
-      final row = formState.postingRows[i];
-      if (!row.isValid) continue;
-      await transactionDao.insertPosting(
-        db.PostingsCompanion.insert(
-          id: _uuid.v4(),
-          transactionId: txId,
-          accountId: row.account!.id,
-          amountMilliunits: row.amountMilliunits!,
-          memo: drift.Value(row.memo.isEmpty ? null : row.memo),
-          sortOrder: drift.Value(i),
-        ),
-      );
-    }
-
-    if (andNew) {
-      notifier.reset();
-    } else {
-      if (context.mounted) context.pop();
     }
   }
 }
@@ -215,20 +114,18 @@ class TransactionScreen extends ConsumerWidget {
 // Sub-widgets
 // ─────────────────────────────────────────────
 
-class _TypeSelector extends StatelessWidget {
-  final TransactionType value;
-  final ValueChanged<TransactionType> onChanged;
-
-  const _TypeSelector({required this.value, required this.onChanged});
-
+class _TypeSelector extends ConsumerWidget {
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final type = ref.watch(transactionFormProvider).type;
+    final notifier = ref.read(transactionFormProvider.notifier);
+
     return SegmentedButton<TransactionType>(
       segments: const [
         ButtonSegment(
           value: TransactionType.expense,
           label: Text('Expense'),
-          icon: Icon(Icons.shopping_cart),
+          icon: Icon(Icons.shopping_cart_outlined),
         ),
         ButtonSegment(
           value: TransactionType.budgetMove,
@@ -238,225 +135,334 @@ class _TypeSelector extends StatelessWidget {
         ButtonSegment(
           value: TransactionType.transfer,
           label: Text('Transfer'),
-          icon: Icon(Icons.account_balance),
+          icon: Icon(Icons.account_balance_outlined),
         ),
       ],
-      selected: {value},
-      onSelectionChanged: (s) => onChanged(s.first),
+      selected: {type},
+      onSelectionChanged: (selected) => notifier.setType(selected.first),
     );
   }
 }
 
-class _DateField extends StatelessWidget {
-  final DateTime date;
-  final ValueChanged<DateTime> onChanged;
+class _DateTimeRow extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(transactionFormProvider);
+    final notifier = ref.read(transactionFormProvider.notifier);
 
-  const _DateField({required this.date, required this.onChanged});
+    return Row(
+      children: [
+        Expanded(
+          child: OutlinedButton.icon(
+            icon: const Icon(Icons.calendar_today, size: 16),
+            label: Text(_formatDate(state.date)),
+            onPressed: () async {
+              final picked = await showDatePicker(
+                context: context,
+                initialDate: state.date,
+                firstDate: DateTime(2000),
+                lastDate: DateTime(2100),
+              );
+              if (picked != null) notifier.setDate(picked);
+            },
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: OutlinedButton.icon(
+            icon: const Icon(Icons.access_time, size: 16),
+            label: Text(_formatTime(state.time)),
+            onPressed: () async {
+              final picked = await showTimePicker(
+                context: context,
+                initialTime: TimeOfDay.fromDateTime(state.time),
+              );
+              if (picked != null) {
+                final updated = DateTime(
+                  state.time.year,
+                  state.time.month,
+                  state.time.day,
+                  picked.hour,
+                  picked.minute,
+                );
+                notifier.setTime(updated);
+              }
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _formatDate(DateTime d) =>
+      '${d.year}/${d.month.toString().padLeft(2, '0')}/${d.day.toString().padLeft(2, '0')}';
+
+  String _formatTime(DateTime d) =>
+      '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+}
+
+class _PayeeField extends ConsumerStatefulWidget {
+  @override
+  ConsumerState<_PayeeField> createState() => _PayeeFieldState();
+}
+
+class _PayeeFieldState extends ConsumerState<_PayeeField> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final label =
-        '${date.year}/${date.month.toString().padLeft(2, '0')}/${date.day.toString().padLeft(2, '0')}';
-    return InkWell(
-      onTap: () async {
-        final picked = await showDatePicker(
-          context: context,
-          initialDate: date,
-          firstDate: DateTime(2000),
-          lastDate: DateTime(2100),
-        );
-        if (picked != null) onChanged(picked);
+    final notifier = ref.read(transactionFormProvider.notifier);
+
+    return Autocomplete<PayeeRow>(
+      displayStringForOption: (p) => p.name,
+      optionsBuilder: (textEditingValue) async {
+        if (textEditingValue.text.isEmpty) return [];
+        final payeeDao = ref.read(payeeDaoProvider);
+        return payeeDao.search(textEditingValue.text);
       },
-      child: InputDecorator(
-        decoration: const InputDecoration(
-          labelText: 'Date',
-          suffixIcon: Icon(Icons.calendar_today, size: 18),
-        ),
-        child: Text(label),
-      ),
+      onSelected: (row) => notifier.selectPayee(_payeeRowToModel(row)),
+      fieldViewBuilder: (context, controller, focusNode, onSubmitted) {
+        return TextField(
+          controller: controller,
+          focusNode: focusNode,
+          decoration: const InputDecoration(
+            labelText: 'Payee',
+            hintText: 'e.g. Whole Foods',
+          ),
+          onChanged: notifier.setPayeeRaw,
+          textCapitalization: TextCapitalization.words,
+        );
+      },
     );
   }
 }
 
-class _TimeField extends StatelessWidget {
-  final DateTime time;
-  final ValueChanged<DateTime> onChanged;
-
-  const _TimeField({required this.time, required this.onChanged});
-
+class _PostingRowList extends ConsumerWidget {
   @override
-  Widget build(BuildContext context) {
-    final label =
-        '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
-    return InkWell(
-      onTap: () async {
-        final picked = await showTimePicker(
-          context: context,
-          initialTime: TimeOfDay.fromDateTime(time),
-        );
-        if (picked != null) {
-          onChanged(DateTime(
-            time.year, time.month, time.day,
-            picked.hour, picked.minute,
-          ));
-        }
-      },
-      child: InputDecorator(
-        decoration: const InputDecoration(
-          labelText: 'Time',
-          suffixIcon: Icon(Icons.access_time, size: 18),
-        ),
-        child: Text(label),
-      ),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final rows = ref.watch(transactionFormProvider).rows;
+
+    return Column(
+      children: rows
+          .map((row) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _PostingRow(row: row),
+              ))
+          .toList(),
     );
   }
 }
 
-class _PostingRows extends ConsumerWidget {
-  final List<PostingFormRow> rows;
-  final TransactionType type;
+class _PostingRow extends ConsumerWidget {
+  final PostingFormRow row;
 
-  const _PostingRows({required this.rows, required this.type});
+  const _PostingRow({required this.row});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final notifier = ref.read(transactionFormProvider.notifier);
+    final rows = ref.watch(transactionFormProvider).postingRows;
 
-    return Column(
-      children: rows.map((row) {
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: _PostingRowWidget(
-            row: row,
-            canRemove: rows.length > 1,
-            onAccountSelected: (account) =>
-                notifier.updatePostingAccount(row.rowId, account),
-            onAmountChanged: (v) =>
-                notifier.updatePostingAmount(row.rowId, v),
-            onMemoChanged: (v) =>
-                notifier.updatePostingMemo(row.rowId, v),
-            onRemove: () => notifier.removePostingRow(row.rowId),
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Account typeahead
+        Expanded(
+          flex: 3,
+          child: _AccountTypeahead(
+            rowId: row.rowId,
+            selectedAccount: row.account,
+            onSelected: (account) =>
+                notifier.setPostingAccount(row.rowId, account),
           ),
-        );
-      }).toList(),
+        ),
+        const SizedBox(width: 8),
+
+        // Amount field
+        Expanded(
+          flex: 2,
+          child: TextField(
+            decoration: InputDecoration(
+              labelText: 'Amount',
+              prefixText: '\$',
+              errorText: row.amountRaw.isNotEmpty &&
+                      row.amountMilliunits == null
+                  ? 'Invalid'
+                  : null,
+            ),
+            keyboardType:
+                const TextInputType.numberWithOptions(decimal: true),
+            onChanged: (v) => notifier.setPostingAmount(row.rowId, v),
+          ),
+        ),
+
+        // Remove button (only shown when more than one row)
+        if (rows.length > 1)
+          IconButton(
+            icon: const Icon(Icons.remove_circle_outline, size: 20),
+            tooltip: 'Remove posting',
+            onPressed: () => notifier.removePostingRow(row.rowId),
+          )
+        else
+          const SizedBox(width: 40), // maintain alignment
+      ],
     );
   }
 }
 
-class _PostingRowWidget extends StatelessWidget {
-  final PostingFormRow row;
-  final bool canRemove;
-  final ValueChanged<Account> onAccountSelected;
-  final ValueChanged<String> onAmountChanged;
-  final ValueChanged<String> onMemoChanged;
-  final VoidCallback onRemove;
+class _AccountTypeahead extends ConsumerWidget {
+  final String rowId;
+  final Account? selectedAccount;
+  final ValueChanged<Account> onSelected;
 
-  const _PostingRowWidget({
-    required this.row,
-    required this.canRemove,
-    required this.onAccountSelected,
-    required this.onAmountChanged,
-    required this.onMemoChanged,
-    required this.onRemove,
+  const _AccountTypeahead({
+    required this.rowId,
+    required this.selectedAccount,
+    required this.onSelected,
   });
 
   @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  flex: 3,
-                  child: AccountTypeahead(
-                    initialValue: row.account?.displayName ?? '',
-                    onSelected: onAccountSelected,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  flex: 2,
-                  child: TextField(
-                    decoration: const InputDecoration(
-                      labelText: 'Amount',
-                      prefixText: '\$',
-                    ),
-                    keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true, signed: true),
-                    controller: TextEditingController(text: row.amountRaw)
-                      ..selection = TextSelection.collapsed(
-                          offset: row.amountRaw.length),
-                    onChanged: onAmountChanged,
-                  ),
-                ),
-                if (canRemove)
-                  IconButton(
-                    icon: const Icon(Icons.remove_circle_outline),
-                    onPressed: onRemove,
-                    tooltip: 'Remove posting',
-                  ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              decoration: const InputDecoration(
-                labelText: 'Memo',
-                hintText: 'Optional',
-              ),
-              controller: TextEditingController(text: row.memo)
-                ..selection =
-                    TextSelection.collapsed(offset: row.memo.length),
-              onChanged: onMemoChanged,
-            ),
-          ],
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Autocomplete<AccountRow>(
+      displayStringForOption: (a) => a.ledgerName,
+      initialValue: selectedAccount != null
+          ? TextEditingValue(text: selectedAccount!.ledgerName)
+          : null,
+      optionsBuilder: (textEditingValue) async {
+        if (textEditingValue.text.isEmpty) return [];
+        final accountDao = ref.read(accountDaoProvider);
+        return accountDao.search(textEditingValue.text);
+      },
+      onSelected: (row) => onSelected(_accountRowToModel(row)),
+      fieldViewBuilder: (context, controller, focusNode, onSubmitted) {
+        return TextField(
+          controller: controller,
+          focusNode: focusNode,
+          decoration: const InputDecoration(
+            labelText: 'Account',
+            hintText: 'e.g. Expenses:Food',
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _RunningTotal extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(transactionFormProvider);
+    final theme = Theme.of(context);
+    final isZero = state.totalMilliunits == 0;
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        Text('Total: ', style: theme.textTheme.bodySmall),
+        Text(
+          state.totalDisplay,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+            color: isZero ? theme.colorScheme.primary : theme.colorScheme.error,
+          ),
         ),
+      ],
+    );
+  }
+}
+
+class _NoteField extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final notifier = ref.read(transactionFormProvider.notifier);
+
+    return TextField(
+      decoration: const InputDecoration(
+        labelText: 'Note',
+        hintText: 'Optional memo for both YNAB and Ledger',
+      ),
+      maxLines: 2,
+      onChanged: notifier.setNote,
+    );
+  }
+}
+
+class _SaveButtons extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(transactionFormProvider);
+
+    if (state.isSaving) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    return Row(
+      children: [
+        Expanded(
+          child: FilledButton(
+            onPressed: state.isValid
+                ? () => _save(context, ref, saveAndNew: false)
+                : null,
+            child: const Text('Save'),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: OutlinedButton(
+            onPressed: state.isValid
+                ? () => _save(context, ref, saveAndNew: true)
+                : null,
+            child: const Text('Save & New'),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _save(BuildContext context, WidgetRef ref,
+      {required bool saveAndNew}) async {
+    final notifier = ref.read(transactionFormProvider.notifier);
+    final success = await notifier.save();
+    if (success && context.mounted) {
+      if (saveAndNew) {
+        context.pop();
+        context.push('/transaction/new');
+      } else {
+        context.pop();
+      }
+    }
+  }
+}
+
+class _ErrorBanner extends StatelessWidget {
+  final String message;
+  const _ErrorBanner({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.errorContainer,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        message,
+        style: TextStyle(
+            color: Theme.of(context).colorScheme.onErrorContainer),
       ),
     );
   }
 }
 
-class _RunningTotal extends StatelessWidget {
-  final int totalMilliunits;
-
-  const _RunningTotal({required this.totalMilliunits});
-
-  @override
-  Widget build(BuildContext context) {
-    final isBalanced = totalMilliunits == 0;
-    final dollars = totalMilliunits.abs() ~/ 1000;
-    final cents = (totalMilliunits.abs() % 1000) ~/ 10;
-    final sign = totalMilliunits < 0 ? '-' : '+';
-    final label = isBalanced
-        ? 'Balanced'
-        : 'Total: $sign\$$dollars.${cents.toString().padLeft(2, '0')}';
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          Icon(
-            isBalanced ? Icons.check_circle : Icons.info_outline,
-            size: 16,
-            color: isBalanced
-                ? Colors.green
-                : Theme.of(context).colorScheme.secondary,
-          ),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: TextStyle(
-              color: isBalanced
-                  ? Colors.green
-                  : Theme.of(context).colorScheme.secondary,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+extension on TransactionFormState {
+  List<PostingFormRow> get rows => postingRows;
 }
