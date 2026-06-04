@@ -3,7 +3,8 @@
 part of 'database.dart';
 
 // ignore_for_file: type=lint
-class $AccountsTable extends Accounts with TableInfo<$AccountsTable, Account> {
+class $AccountsTable extends Accounts
+    with TableInfo<$AccountsTable, AccountRow> {
   @override
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
@@ -38,7 +39,7 @@ class $AccountsTable extends Accounts with TableInfo<$AccountsTable, Account> {
   String get actualTableName => $name;
   static const String $name = 'accounts';
   @override
-  VerificationContext validateIntegrity(Insertable<Account> instance,
+  VerificationContext validateIntegrity(Insertable<AccountRow> instance,
       {bool isInserting = false}) {
     final context = VerificationContext();
     final data = instance.toColumns(true);
@@ -69,9 +70,9 @@ class $AccountsTable extends Accounts with TableInfo<$AccountsTable, Account> {
   @override
   Set<GeneratedColumn> get $primaryKey => {id};
   @override
-  Account map(Map<String, dynamic> data, {String? tablePrefix}) {
+  AccountRow map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return Account(
+    return AccountRow(
       id: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}id'])!,
       ledgerName: attachedDatabase.typeMapping
@@ -89,12 +90,12 @@ class $AccountsTable extends Accounts with TableInfo<$AccountsTable, Account> {
   }
 }
 
-class Account extends DataClass implements Insertable<Account> {
+class AccountRow extends DataClass implements Insertable<AccountRow> {
   final String id;
   final String ledgerName;
   final String? ynabId;
   final String? ynabName;
-  const Account(
+  const AccountRow(
       {required this.id, required this.ledgerName, this.ynabId, this.ynabName});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -122,10 +123,10 @@ class Account extends DataClass implements Insertable<Account> {
     );
   }
 
-  factory Account.fromJson(Map<String, dynamic> json,
+  factory AccountRow.fromJson(Map<String, dynamic> json,
       {ValueSerializer? serializer}) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
-    return Account(
+    return AccountRow(
       id: serializer.fromJson<String>(json['id']),
       ledgerName: serializer.fromJson<String>(json['ledgerName']),
       ynabId: serializer.fromJson<String?>(json['ynabId']),
@@ -143,19 +144,19 @@ class Account extends DataClass implements Insertable<Account> {
     };
   }
 
-  Account copyWith(
+  AccountRow copyWith(
           {String? id,
           String? ledgerName,
           Value<String?> ynabId = const Value.absent(),
           Value<String?> ynabName = const Value.absent()}) =>
-      Account(
+      AccountRow(
         id: id ?? this.id,
         ledgerName: ledgerName ?? this.ledgerName,
         ynabId: ynabId.present ? ynabId.value : this.ynabId,
         ynabName: ynabName.present ? ynabName.value : this.ynabName,
       );
-  Account copyWithCompanion(AccountsCompanion data) {
-    return Account(
+  AccountRow copyWithCompanion(AccountsCompanion data) {
+    return AccountRow(
       id: data.id.present ? data.id.value : this.id,
       ledgerName:
           data.ledgerName.present ? data.ledgerName.value : this.ledgerName,
@@ -166,7 +167,7 @@ class Account extends DataClass implements Insertable<Account> {
 
   @override
   String toString() {
-    return (StringBuffer('Account(')
+    return (StringBuffer('AccountRow(')
           ..write('id: $id, ')
           ..write('ledgerName: $ledgerName, ')
           ..write('ynabId: $ynabId, ')
@@ -180,14 +181,14 @@ class Account extends DataClass implements Insertable<Account> {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      (other is Account &&
+      (other is AccountRow &&
           other.id == this.id &&
           other.ledgerName == this.ledgerName &&
           other.ynabId == this.ynabId &&
           other.ynabName == this.ynabName);
 }
 
-class AccountsCompanion extends UpdateCompanion<Account> {
+class AccountsCompanion extends UpdateCompanion<AccountRow> {
   final Value<String> id;
   final Value<String> ledgerName;
   final Value<String?> ynabId;
@@ -208,7 +209,7 @@ class AccountsCompanion extends UpdateCompanion<Account> {
     this.rowid = const Value.absent(),
   })  : id = Value(id),
         ledgerName = Value(ledgerName);
-  static Insertable<Account> custom({
+  static Insertable<AccountRow> custom({
     Expression<String>? id,
     Expression<String>? ledgerName,
     Expression<String>? ynabId,
@@ -273,7 +274,7 @@ class AccountsCompanion extends UpdateCompanion<Account> {
   }
 }
 
-class $PayeesTable extends Payees with TableInfo<$PayeesTable, Payee> {
+class $PayeesTable extends Payees with TableInfo<$PayeesTable, PayeeRow> {
   @override
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
@@ -296,7 +297,7 @@ class $PayeesTable extends Payees with TableInfo<$PayeesTable, Payee> {
   String get actualTableName => $name;
   static const String $name = 'payees';
   @override
-  VerificationContext validateIntegrity(Insertable<Payee> instance,
+  VerificationContext validateIntegrity(Insertable<PayeeRow> instance,
       {bool isInserting = false}) {
     final context = VerificationContext();
     final data = instance.toColumns(true);
@@ -317,9 +318,9 @@ class $PayeesTable extends Payees with TableInfo<$PayeesTable, Payee> {
   @override
   Set<GeneratedColumn> get $primaryKey => {id};
   @override
-  Payee map(Map<String, dynamic> data, {String? tablePrefix}) {
+  PayeeRow map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return Payee(
+    return PayeeRow(
       id: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}id'])!,
       name: attachedDatabase.typeMapping
@@ -333,10 +334,10 @@ class $PayeesTable extends Payees with TableInfo<$PayeesTable, Payee> {
   }
 }
 
-class Payee extends DataClass implements Insertable<Payee> {
+class PayeeRow extends DataClass implements Insertable<PayeeRow> {
   final String id;
   final String name;
-  const Payee({required this.id, required this.name});
+  const PayeeRow({required this.id, required this.name});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -352,10 +353,10 @@ class Payee extends DataClass implements Insertable<Payee> {
     );
   }
 
-  factory Payee.fromJson(Map<String, dynamic> json,
+  factory PayeeRow.fromJson(Map<String, dynamic> json,
       {ValueSerializer? serializer}) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
-    return Payee(
+    return PayeeRow(
       id: serializer.fromJson<String>(json['id']),
       name: serializer.fromJson<String>(json['name']),
     );
@@ -369,12 +370,12 @@ class Payee extends DataClass implements Insertable<Payee> {
     };
   }
 
-  Payee copyWith({String? id, String? name}) => Payee(
+  PayeeRow copyWith({String? id, String? name}) => PayeeRow(
         id: id ?? this.id,
         name: name ?? this.name,
       );
-  Payee copyWithCompanion(PayeesCompanion data) {
-    return Payee(
+  PayeeRow copyWithCompanion(PayeesCompanion data) {
+    return PayeeRow(
       id: data.id.present ? data.id.value : this.id,
       name: data.name.present ? data.name.value : this.name,
     );
@@ -382,7 +383,7 @@ class Payee extends DataClass implements Insertable<Payee> {
 
   @override
   String toString() {
-    return (StringBuffer('Payee(')
+    return (StringBuffer('PayeeRow(')
           ..write('id: $id, ')
           ..write('name: $name')
           ..write(')'))
@@ -394,10 +395,10 @@ class Payee extends DataClass implements Insertable<Payee> {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      (other is Payee && other.id == this.id && other.name == this.name);
+      (other is PayeeRow && other.id == this.id && other.name == this.name);
 }
 
-class PayeesCompanion extends UpdateCompanion<Payee> {
+class PayeesCompanion extends UpdateCompanion<PayeeRow> {
   final Value<String> id;
   final Value<String> name;
   final Value<int> rowid;
@@ -412,7 +413,7 @@ class PayeesCompanion extends UpdateCompanion<Payee> {
     this.rowid = const Value.absent(),
   })  : id = Value(id),
         name = Value(name);
-  static Insertable<Payee> custom({
+  static Insertable<PayeeRow> custom({
     Expression<String>? id,
     Expression<String>? name,
     Expression<int>? rowid,
@@ -460,7 +461,7 @@ class PayeesCompanion extends UpdateCompanion<Payee> {
 }
 
 class $PayeeTemplatesTable extends PayeeTemplates
-    with TableInfo<$PayeeTemplatesTable, PayeeTemplate> {
+    with TableInfo<$PayeeTemplatesTable, PayeeTemplateRow> {
   @override
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
@@ -498,7 +499,7 @@ class $PayeeTemplatesTable extends PayeeTemplates
   String get actualTableName => $name;
   static const String $name = 'payee_templates';
   @override
-  VerificationContext validateIntegrity(Insertable<PayeeTemplate> instance,
+  VerificationContext validateIntegrity(Insertable<PayeeTemplateRow> instance,
       {bool isInserting = false}) {
     final context = VerificationContext();
     final data = instance.toColumns(true);
@@ -533,9 +534,9 @@ class $PayeeTemplatesTable extends PayeeTemplates
   @override
   Set<GeneratedColumn> get $primaryKey => {id};
   @override
-  PayeeTemplate map(Map<String, dynamic> data, {String? tablePrefix}) {
+  PayeeTemplateRow map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return PayeeTemplate(
+    return PayeeTemplateRow(
       id: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}id'])!,
       payeeId: attachedDatabase.typeMapping
@@ -553,7 +554,8 @@ class $PayeeTemplatesTable extends PayeeTemplates
   }
 }
 
-class PayeeTemplate extends DataClass implements Insertable<PayeeTemplate> {
+class PayeeTemplateRow extends DataClass
+    implements Insertable<PayeeTemplateRow> {
   final String id;
   final String payeeId;
 
@@ -562,7 +564,7 @@ class PayeeTemplate extends DataClass implements Insertable<PayeeTemplate> {
 
   /// TransactionType enum value as string: "expense", "budgetMove", "transfer"
   final String transactionType;
-  const PayeeTemplate(
+  const PayeeTemplateRow(
       {required this.id,
       required this.payeeId,
       required this.name,
@@ -586,10 +588,10 @@ class PayeeTemplate extends DataClass implements Insertable<PayeeTemplate> {
     );
   }
 
-  factory PayeeTemplate.fromJson(Map<String, dynamic> json,
+  factory PayeeTemplateRow.fromJson(Map<String, dynamic> json,
       {ValueSerializer? serializer}) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
-    return PayeeTemplate(
+    return PayeeTemplateRow(
       id: serializer.fromJson<String>(json['id']),
       payeeId: serializer.fromJson<String>(json['payeeId']),
       name: serializer.fromJson<String>(json['name']),
@@ -607,19 +609,19 @@ class PayeeTemplate extends DataClass implements Insertable<PayeeTemplate> {
     };
   }
 
-  PayeeTemplate copyWith(
+  PayeeTemplateRow copyWith(
           {String? id,
           String? payeeId,
           String? name,
           String? transactionType}) =>
-      PayeeTemplate(
+      PayeeTemplateRow(
         id: id ?? this.id,
         payeeId: payeeId ?? this.payeeId,
         name: name ?? this.name,
         transactionType: transactionType ?? this.transactionType,
       );
-  PayeeTemplate copyWithCompanion(PayeeTemplatesCompanion data) {
-    return PayeeTemplate(
+  PayeeTemplateRow copyWithCompanion(PayeeTemplatesCompanion data) {
+    return PayeeTemplateRow(
       id: data.id.present ? data.id.value : this.id,
       payeeId: data.payeeId.present ? data.payeeId.value : this.payeeId,
       name: data.name.present ? data.name.value : this.name,
@@ -631,7 +633,7 @@ class PayeeTemplate extends DataClass implements Insertable<PayeeTemplate> {
 
   @override
   String toString() {
-    return (StringBuffer('PayeeTemplate(')
+    return (StringBuffer('PayeeTemplateRow(')
           ..write('id: $id, ')
           ..write('payeeId: $payeeId, ')
           ..write('name: $name, ')
@@ -645,14 +647,14 @@ class PayeeTemplate extends DataClass implements Insertable<PayeeTemplate> {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      (other is PayeeTemplate &&
+      (other is PayeeTemplateRow &&
           other.id == this.id &&
           other.payeeId == this.payeeId &&
           other.name == this.name &&
           other.transactionType == this.transactionType);
 }
 
-class PayeeTemplatesCompanion extends UpdateCompanion<PayeeTemplate> {
+class PayeeTemplatesCompanion extends UpdateCompanion<PayeeTemplateRow> {
   final Value<String> id;
   final Value<String> payeeId;
   final Value<String> name;
@@ -675,7 +677,7 @@ class PayeeTemplatesCompanion extends UpdateCompanion<PayeeTemplate> {
         payeeId = Value(payeeId),
         name = Value(name),
         transactionType = Value(transactionType);
-  static Insertable<PayeeTemplate> custom({
+  static Insertable<PayeeTemplateRow> custom({
     Expression<String>? id,
     Expression<String>? payeeId,
     Expression<String>? name,
@@ -741,7 +743,7 @@ class PayeeTemplatesCompanion extends UpdateCompanion<PayeeTemplate> {
 }
 
 class $PostingTemplatesTable extends PostingTemplates
-    with TableInfo<$PostingTemplatesTable, PostingTemplate> {
+    with TableInfo<$PostingTemplatesTable, PostingTemplateRow> {
   @override
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
@@ -814,7 +816,7 @@ class $PostingTemplatesTable extends PostingTemplates
   String get actualTableName => $name;
   static const String $name = 'posting_templates';
   @override
-  VerificationContext validateIntegrity(Insertable<PostingTemplate> instance,
+  VerificationContext validateIntegrity(Insertable<PostingTemplateRow> instance,
       {bool isInserting = false}) {
     final context = VerificationContext();
     final data = instance.toColumns(true);
@@ -864,9 +866,9 @@ class $PostingTemplatesTable extends PostingTemplates
   @override
   Set<GeneratedColumn> get $primaryKey => {id};
   @override
-  PostingTemplate map(Map<String, dynamic> data, {String? tablePrefix}) {
+  PostingTemplateRow map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return PostingTemplate(
+    return PostingTemplateRow(
       id: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}id'])!,
       payeeTemplateId: attachedDatabase.typeMapping.read(
@@ -891,7 +893,8 @@ class $PostingTemplatesTable extends PostingTemplates
   }
 }
 
-class PostingTemplate extends DataClass implements Insertable<PostingTemplate> {
+class PostingTemplateRow extends DataClass
+    implements Insertable<PostingTemplateRow> {
   final String id;
   final String payeeTemplateId;
   final String accountId;
@@ -901,7 +904,7 @@ class PostingTemplate extends DataClass implements Insertable<PostingTemplate> {
 
   /// Display order within the template
   final int sortOrder;
-  const PostingTemplate(
+  const PostingTemplateRow(
       {required this.id,
       required this.payeeTemplateId,
       required this.accountId,
@@ -940,10 +943,10 @@ class PostingTemplate extends DataClass implements Insertable<PostingTemplate> {
     );
   }
 
-  factory PostingTemplate.fromJson(Map<String, dynamic> json,
+  factory PostingTemplateRow.fromJson(Map<String, dynamic> json,
       {ValueSerializer? serializer}) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
-    return PostingTemplate(
+    return PostingTemplateRow(
       id: serializer.fromJson<String>(json['id']),
       payeeTemplateId: serializer.fromJson<String>(json['payeeTemplateId']),
       accountId: serializer.fromJson<String>(json['accountId']),
@@ -969,7 +972,7 @@ class PostingTemplate extends DataClass implements Insertable<PostingTemplate> {
     };
   }
 
-  PostingTemplate copyWith(
+  PostingTemplateRow copyWith(
           {String? id,
           String? payeeTemplateId,
           String? accountId,
@@ -977,7 +980,7 @@ class PostingTemplate extends DataClass implements Insertable<PostingTemplate> {
           Value<String?> memo = const Value.absent(),
           bool? isBudgetMirror,
           int? sortOrder}) =>
-      PostingTemplate(
+      PostingTemplateRow(
         id: id ?? this.id,
         payeeTemplateId: payeeTemplateId ?? this.payeeTemplateId,
         accountId: accountId ?? this.accountId,
@@ -988,8 +991,8 @@ class PostingTemplate extends DataClass implements Insertable<PostingTemplate> {
         isBudgetMirror: isBudgetMirror ?? this.isBudgetMirror,
         sortOrder: sortOrder ?? this.sortOrder,
       );
-  PostingTemplate copyWithCompanion(PostingTemplatesCompanion data) {
-    return PostingTemplate(
+  PostingTemplateRow copyWithCompanion(PostingTemplatesCompanion data) {
+    return PostingTemplateRow(
       id: data.id.present ? data.id.value : this.id,
       payeeTemplateId: data.payeeTemplateId.present
           ? data.payeeTemplateId.value
@@ -1008,7 +1011,7 @@ class PostingTemplate extends DataClass implements Insertable<PostingTemplate> {
 
   @override
   String toString() {
-    return (StringBuffer('PostingTemplate(')
+    return (StringBuffer('PostingTemplateRow(')
           ..write('id: $id, ')
           ..write('payeeTemplateId: $payeeTemplateId, ')
           ..write('accountId: $accountId, ')
@@ -1026,7 +1029,7 @@ class PostingTemplate extends DataClass implements Insertable<PostingTemplate> {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      (other is PostingTemplate &&
+      (other is PostingTemplateRow &&
           other.id == this.id &&
           other.payeeTemplateId == this.payeeTemplateId &&
           other.accountId == this.accountId &&
@@ -1036,7 +1039,7 @@ class PostingTemplate extends DataClass implements Insertable<PostingTemplate> {
           other.sortOrder == this.sortOrder);
 }
 
-class PostingTemplatesCompanion extends UpdateCompanion<PostingTemplate> {
+class PostingTemplatesCompanion extends UpdateCompanion<PostingTemplateRow> {
   final Value<String> id;
   final Value<String> payeeTemplateId;
   final Value<String> accountId;
@@ -1067,7 +1070,7 @@ class PostingTemplatesCompanion extends UpdateCompanion<PostingTemplate> {
   })  : id = Value(id),
         payeeTemplateId = Value(payeeTemplateId),
         accountId = Value(accountId);
-  static Insertable<PostingTemplate> custom({
+  static Insertable<PostingTemplateRow> custom({
     Expression<String>? id,
     Expression<String>? payeeTemplateId,
     Expression<String>? accountId,
@@ -1160,7 +1163,7 @@ class PostingTemplatesCompanion extends UpdateCompanion<PostingTemplate> {
 }
 
 class $TransactionsTable extends Transactions
-    with TableInfo<$TransactionsTable, Transaction> {
+    with TableInfo<$TransactionsTable, TransactionRow> {
   @override
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
@@ -1253,7 +1256,7 @@ class $TransactionsTable extends Transactions
   String get actualTableName => $name;
   static const String $name = 'transactions';
   @override
-  VerificationContext validateIntegrity(Insertable<Transaction> instance,
+  VerificationContext validateIntegrity(Insertable<TransactionRow> instance,
       {bool isInserting = false}) {
     final context = VerificationContext();
     final data = instance.toColumns(true);
@@ -1324,9 +1327,9 @@ class $TransactionsTable extends Transactions
   @override
   Set<GeneratedColumn> get $primaryKey => {id};
   @override
-  Transaction map(Map<String, dynamic> data, {String? tablePrefix}) {
+  TransactionRow map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return Transaction(
+    return TransactionRow(
       id: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}id'])!,
       type: attachedDatabase.typeMapping
@@ -1358,7 +1361,7 @@ class $TransactionsTable extends Transactions
   }
 }
 
-class Transaction extends DataClass implements Insertable<Transaction> {
+class TransactionRow extends DataClass implements Insertable<TransactionRow> {
   final String id;
 
   /// "expense", "budgetMove", "transfer"
@@ -1379,7 +1382,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
   final String ledgerSyncStatus;
   final String? ynabTransactionId;
   final DateTime createdAt;
-  const Transaction(
+  const TransactionRow(
       {required this.id,
       required this.type,
       required this.date,
@@ -1434,10 +1437,10 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     );
   }
 
-  factory Transaction.fromJson(Map<String, dynamic> json,
+  factory TransactionRow.fromJson(Map<String, dynamic> json,
       {ValueSerializer? serializer}) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
-    return Transaction(
+    return TransactionRow(
       id: serializer.fromJson<String>(json['id']),
       type: serializer.fromJson<String>(json['type']),
       date: serializer.fromJson<DateTime>(json['date']),
@@ -1470,7 +1473,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     };
   }
 
-  Transaction copyWith(
+  TransactionRow copyWith(
           {String? id,
           String? type,
           DateTime? date,
@@ -1482,7 +1485,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           String? ledgerSyncStatus,
           Value<String?> ynabTransactionId = const Value.absent(),
           DateTime? createdAt}) =>
-      Transaction(
+      TransactionRow(
         id: id ?? this.id,
         type: type ?? this.type,
         date: date ?? this.date,
@@ -1497,8 +1500,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
             : this.ynabTransactionId,
         createdAt: createdAt ?? this.createdAt,
       );
-  Transaction copyWithCompanion(TransactionsCompanion data) {
-    return Transaction(
+  TransactionRow copyWithCompanion(TransactionsCompanion data) {
+    return TransactionRow(
       id: data.id.present ? data.id.value : this.id,
       type: data.type.present ? data.type.value : this.type,
       date: data.date.present ? data.date.value : this.date,
@@ -1521,7 +1524,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
 
   @override
   String toString() {
-    return (StringBuffer('Transaction(')
+    return (StringBuffer('TransactionRow(')
           ..write('id: $id, ')
           ..write('type: $type, ')
           ..write('date: $date, ')
@@ -1543,7 +1546,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      (other is Transaction &&
+      (other is TransactionRow &&
           other.id == this.id &&
           other.type == this.type &&
           other.date == this.date &&
@@ -1557,7 +1560,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           other.createdAt == this.createdAt);
 }
 
-class TransactionsCompanion extends UpdateCompanion<Transaction> {
+class TransactionsCompanion extends UpdateCompanion<TransactionRow> {
   final Value<String> id;
   final Value<String> type;
   final Value<DateTime> date;
@@ -1603,7 +1606,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
         payeeName = Value(payeeName),
         time = Value(time),
         createdAt = Value(createdAt);
-  static Insertable<Transaction> custom({
+  static Insertable<TransactionRow> custom({
     Expression<String>? id,
     Expression<String>? type,
     Expression<DateTime>? date,
@@ -1724,7 +1727,8 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
   }
 }
 
-class $PostingsTable extends Postings with TableInfo<$PostingsTable, Posting> {
+class $PostingsTable extends Postings
+    with TableInfo<$PostingsTable, PostingRow> {
   @override
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
@@ -1797,7 +1801,7 @@ class $PostingsTable extends Postings with TableInfo<$PostingsTable, Posting> {
   String get actualTableName => $name;
   static const String $name = 'postings';
   @override
-  VerificationContext validateIntegrity(Insertable<Posting> instance,
+  VerificationContext validateIntegrity(Insertable<PostingRow> instance,
       {bool isInserting = false}) {
     final context = VerificationContext();
     final data = instance.toColumns(true);
@@ -1848,9 +1852,9 @@ class $PostingsTable extends Postings with TableInfo<$PostingsTable, Posting> {
   @override
   Set<GeneratedColumn> get $primaryKey => {id};
   @override
-  Posting map(Map<String, dynamic> data, {String? tablePrefix}) {
+  PostingRow map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return Posting(
+    return PostingRow(
       id: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}id'])!,
       transactionId: attachedDatabase.typeMapping
@@ -1874,7 +1878,7 @@ class $PostingsTable extends Postings with TableInfo<$PostingsTable, Posting> {
   }
 }
 
-class Posting extends DataClass implements Insertable<Posting> {
+class PostingRow extends DataClass implements Insertable<PostingRow> {
   final String id;
   final String transactionId;
   final String accountId;
@@ -1884,7 +1888,7 @@ class Posting extends DataClass implements Insertable<Posting> {
 
   /// Display order within the transaction
   final int sortOrder;
-  const Posting(
+  const PostingRow(
       {required this.id,
       required this.transactionId,
       required this.accountId,
@@ -1919,10 +1923,10 @@ class Posting extends DataClass implements Insertable<Posting> {
     );
   }
 
-  factory Posting.fromJson(Map<String, dynamic> json,
+  factory PostingRow.fromJson(Map<String, dynamic> json,
       {ValueSerializer? serializer}) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
-    return Posting(
+    return PostingRow(
       id: serializer.fromJson<String>(json['id']),
       transactionId: serializer.fromJson<String>(json['transactionId']),
       accountId: serializer.fromJson<String>(json['accountId']),
@@ -1946,7 +1950,7 @@ class Posting extends DataClass implements Insertable<Posting> {
     };
   }
 
-  Posting copyWith(
+  PostingRow copyWith(
           {String? id,
           String? transactionId,
           String? accountId,
@@ -1954,7 +1958,7 @@ class Posting extends DataClass implements Insertable<Posting> {
           Value<String?> memo = const Value.absent(),
           bool? isBudgetMirror,
           int? sortOrder}) =>
-      Posting(
+      PostingRow(
         id: id ?? this.id,
         transactionId: transactionId ?? this.transactionId,
         accountId: accountId ?? this.accountId,
@@ -1963,8 +1967,8 @@ class Posting extends DataClass implements Insertable<Posting> {
         isBudgetMirror: isBudgetMirror ?? this.isBudgetMirror,
         sortOrder: sortOrder ?? this.sortOrder,
       );
-  Posting copyWithCompanion(PostingsCompanion data) {
-    return Posting(
+  PostingRow copyWithCompanion(PostingsCompanion data) {
+    return PostingRow(
       id: data.id.present ? data.id.value : this.id,
       transactionId: data.transactionId.present
           ? data.transactionId.value
@@ -1983,7 +1987,7 @@ class Posting extends DataClass implements Insertable<Posting> {
 
   @override
   String toString() {
-    return (StringBuffer('Posting(')
+    return (StringBuffer('PostingRow(')
           ..write('id: $id, ')
           ..write('transactionId: $transactionId, ')
           ..write('accountId: $accountId, ')
@@ -2001,7 +2005,7 @@ class Posting extends DataClass implements Insertable<Posting> {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      (other is Posting &&
+      (other is PostingRow &&
           other.id == this.id &&
           other.transactionId == this.transactionId &&
           other.accountId == this.accountId &&
@@ -2011,7 +2015,7 @@ class Posting extends DataClass implements Insertable<Posting> {
           other.sortOrder == this.sortOrder);
 }
 
-class PostingsCompanion extends UpdateCompanion<Posting> {
+class PostingsCompanion extends UpdateCompanion<PostingRow> {
   final Value<String> id;
   final Value<String> transactionId;
   final Value<String> accountId;
@@ -2043,7 +2047,7 @@ class PostingsCompanion extends UpdateCompanion<Posting> {
         transactionId = Value(transactionId),
         accountId = Value(accountId),
         amountMilliunits = Value(amountMilliunits);
-  static Insertable<Posting> custom({
+  static Insertable<PostingRow> custom({
     Expression<String>? id,
     Expression<String>? transactionId,
     Expression<String>? accountId,
@@ -2172,10 +2176,10 @@ typedef $$AccountsTableUpdateCompanionBuilder = AccountsCompanion Function({
 });
 
 final class $$AccountsTableReferences
-    extends BaseReferences<_$AppDatabase, $AccountsTable, Account> {
+    extends BaseReferences<_$AppDatabase, $AccountsTable, AccountRow> {
   $$AccountsTableReferences(super.$_db, super.$_table, super.$_typedResult);
 
-  static MultiTypedResultKey<$PostingTemplatesTable, List<PostingTemplate>>
+  static MultiTypedResultKey<$PostingTemplatesTable, List<PostingTemplateRow>>
       _postingTemplatesRefsTable(_$AppDatabase db) =>
           MultiTypedResultKey.fromTable(db.postingTemplates,
               aliasName: $_aliasNameGenerator(
@@ -2192,11 +2196,11 @@ final class $$AccountsTableReferences
         manager.$state.copyWith(prefetchedData: cache));
   }
 
-  static MultiTypedResultKey<$PostingsTable, List<Posting>> _postingsRefsTable(
-          _$AppDatabase db) =>
-      MultiTypedResultKey.fromTable(db.postings,
-          aliasName:
-              $_aliasNameGenerator(db.accounts.id, db.postings.accountId));
+  static MultiTypedResultKey<$PostingsTable, List<PostingRow>>
+      _postingsRefsTable(_$AppDatabase db) =>
+          MultiTypedResultKey.fromTable(db.postings,
+              aliasName:
+                  $_aliasNameGenerator(db.accounts.id, db.postings.accountId));
 
   $$PostingsTableProcessedTableManager get postingsRefs {
     final manager = $$PostingsTableTableManager($_db, $_db.postings)
@@ -2361,14 +2365,14 @@ class $$AccountsTableAnnotationComposer
 class $$AccountsTableTableManager extends RootTableManager<
     _$AppDatabase,
     $AccountsTable,
-    Account,
+    AccountRow,
     $$AccountsTableFilterComposer,
     $$AccountsTableOrderingComposer,
     $$AccountsTableAnnotationComposer,
     $$AccountsTableCreateCompanionBuilder,
     $$AccountsTableUpdateCompanionBuilder,
-    (Account, $$AccountsTableReferences),
-    Account,
+    (AccountRow, $$AccountsTableReferences),
+    AccountRow,
     PrefetchHooks Function({bool postingTemplatesRefs, bool postingsRefs})> {
   $$AccountsTableTableManager(_$AppDatabase db, $AccountsTable table)
       : super(TableManagerState(
@@ -2424,8 +2428,8 @@ class $$AccountsTableTableManager extends RootTableManager<
               getPrefetchedDataCallback: (items) async {
                 return [
                   if (postingTemplatesRefs)
-                    await $_getPrefetchedData<Account, $AccountsTable,
-                            PostingTemplate>(
+                    await $_getPrefetchedData<AccountRow, $AccountsTable,
+                            PostingTemplateRow>(
                         currentTable: table,
                         referencedTable: $$AccountsTableReferences
                             ._postingTemplatesRefsTable(db),
@@ -2437,7 +2441,8 @@ class $$AccountsTableTableManager extends RootTableManager<
                                 .where((e) => e.accountId == item.id),
                         typedResults: items),
                   if (postingsRefs)
-                    await $_getPrefetchedData<Account, $AccountsTable, Posting>(
+                    await $_getPrefetchedData<AccountRow, $AccountsTable,
+                            PostingRow>(
                         currentTable: table,
                         referencedTable:
                             $$AccountsTableReferences._postingsRefsTable(db),
@@ -2458,14 +2463,14 @@ class $$AccountsTableTableManager extends RootTableManager<
 typedef $$AccountsTableProcessedTableManager = ProcessedTableManager<
     _$AppDatabase,
     $AccountsTable,
-    Account,
+    AccountRow,
     $$AccountsTableFilterComposer,
     $$AccountsTableOrderingComposer,
     $$AccountsTableAnnotationComposer,
     $$AccountsTableCreateCompanionBuilder,
     $$AccountsTableUpdateCompanionBuilder,
-    (Account, $$AccountsTableReferences),
-    Account,
+    (AccountRow, $$AccountsTableReferences),
+    AccountRow,
     PrefetchHooks Function({bool postingTemplatesRefs, bool postingsRefs})>;
 typedef $$PayeesTableCreateCompanionBuilder = PayeesCompanion Function({
   required String id,
@@ -2479,10 +2484,10 @@ typedef $$PayeesTableUpdateCompanionBuilder = PayeesCompanion Function({
 });
 
 final class $$PayeesTableReferences
-    extends BaseReferences<_$AppDatabase, $PayeesTable, Payee> {
+    extends BaseReferences<_$AppDatabase, $PayeesTable, PayeeRow> {
   $$PayeesTableReferences(super.$_db, super.$_table, super.$_typedResult);
 
-  static MultiTypedResultKey<$PayeeTemplatesTable, List<PayeeTemplate>>
+  static MultiTypedResultKey<$PayeeTemplatesTable, List<PayeeTemplateRow>>
       _payeeTemplatesRefsTable(_$AppDatabase db) =>
           MultiTypedResultKey.fromTable(db.payeeTemplates,
               aliasName: $_aliasNameGenerator(
@@ -2497,7 +2502,7 @@ final class $$PayeesTableReferences
         manager.$state.copyWith(prefetchedData: cache));
   }
 
-  static MultiTypedResultKey<$TransactionsTable, List<Transaction>>
+  static MultiTypedResultKey<$TransactionsTable, List<TransactionRow>>
       _transactionsRefsTable(_$AppDatabase db) =>
           MultiTypedResultKey.fromTable(db.transactions,
               aliasName:
@@ -2648,14 +2653,14 @@ class $$PayeesTableAnnotationComposer
 class $$PayeesTableTableManager extends RootTableManager<
     _$AppDatabase,
     $PayeesTable,
-    Payee,
+    PayeeRow,
     $$PayeesTableFilterComposer,
     $$PayeesTableOrderingComposer,
     $$PayeesTableAnnotationComposer,
     $$PayeesTableCreateCompanionBuilder,
     $$PayeesTableUpdateCompanionBuilder,
-    (Payee, $$PayeesTableReferences),
-    Payee,
+    (PayeeRow, $$PayeesTableReferences),
+    PayeeRow,
     PrefetchHooks Function({bool payeeTemplatesRefs, bool transactionsRefs})> {
   $$PayeesTableTableManager(_$AppDatabase db, $PayeesTable table)
       : super(TableManagerState(
@@ -2703,8 +2708,8 @@ class $$PayeesTableTableManager extends RootTableManager<
               getPrefetchedDataCallback: (items) async {
                 return [
                   if (payeeTemplatesRefs)
-                    await $_getPrefetchedData<Payee, $PayeesTable,
-                            PayeeTemplate>(
+                    await $_getPrefetchedData<PayeeRow, $PayeesTable,
+                            PayeeTemplateRow>(
                         currentTable: table,
                         referencedTable: $$PayeesTableReferences
                             ._payeeTemplatesRefsTable(db),
@@ -2716,7 +2721,8 @@ class $$PayeesTableTableManager extends RootTableManager<
                             referencedItems.where((e) => e.payeeId == item.id),
                         typedResults: items),
                   if (transactionsRefs)
-                    await $_getPrefetchedData<Payee, $PayeesTable, Transaction>(
+                    await $_getPrefetchedData<PayeeRow, $PayeesTable,
+                            TransactionRow>(
                         currentTable: table,
                         referencedTable:
                             $$PayeesTableReferences._transactionsRefsTable(db),
@@ -2737,14 +2743,14 @@ class $$PayeesTableTableManager extends RootTableManager<
 typedef $$PayeesTableProcessedTableManager = ProcessedTableManager<
     _$AppDatabase,
     $PayeesTable,
-    Payee,
+    PayeeRow,
     $$PayeesTableFilterComposer,
     $$PayeesTableOrderingComposer,
     $$PayeesTableAnnotationComposer,
     $$PayeesTableCreateCompanionBuilder,
     $$PayeesTableUpdateCompanionBuilder,
-    (Payee, $$PayeesTableReferences),
-    Payee,
+    (PayeeRow, $$PayeesTableReferences),
+    PayeeRow,
     PrefetchHooks Function({bool payeeTemplatesRefs, bool transactionsRefs})>;
 typedef $$PayeeTemplatesTableCreateCompanionBuilder = PayeeTemplatesCompanion
     Function({
@@ -2763,8 +2769,8 @@ typedef $$PayeeTemplatesTableUpdateCompanionBuilder = PayeeTemplatesCompanion
   Value<int> rowid,
 });
 
-final class $$PayeeTemplatesTableReferences
-    extends BaseReferences<_$AppDatabase, $PayeeTemplatesTable, PayeeTemplate> {
+final class $$PayeeTemplatesTableReferences extends BaseReferences<
+    _$AppDatabase, $PayeeTemplatesTable, PayeeTemplateRow> {
   $$PayeeTemplatesTableReferences(
       super.$_db, super.$_table, super.$_typedResult);
 
@@ -2782,7 +2788,7 @@ final class $$PayeeTemplatesTableReferences
         manager.$state.copyWith(prefetchedData: [item]));
   }
 
-  static MultiTypedResultKey<$PostingTemplatesTable, List<PostingTemplate>>
+  static MultiTypedResultKey<$PostingTemplatesTable, List<PostingTemplateRow>>
       _postingTemplatesRefsTable(_$AppDatabase db) =>
           MultiTypedResultKey.fromTable(db.postingTemplates,
               aliasName: $_aliasNameGenerator(
@@ -2964,14 +2970,14 @@ class $$PayeeTemplatesTableAnnotationComposer
 class $$PayeeTemplatesTableTableManager extends RootTableManager<
     _$AppDatabase,
     $PayeeTemplatesTable,
-    PayeeTemplate,
+    PayeeTemplateRow,
     $$PayeeTemplatesTableFilterComposer,
     $$PayeeTemplatesTableOrderingComposer,
     $$PayeeTemplatesTableAnnotationComposer,
     $$PayeeTemplatesTableCreateCompanionBuilder,
     $$PayeeTemplatesTableUpdateCompanionBuilder,
-    (PayeeTemplate, $$PayeeTemplatesTableReferences),
-    PayeeTemplate,
+    (PayeeTemplateRow, $$PayeeTemplatesTableReferences),
+    PayeeTemplateRow,
     PrefetchHooks Function({bool payeeId, bool postingTemplatesRefs})> {
   $$PayeeTemplatesTableTableManager(
       _$AppDatabase db, $PayeeTemplatesTable table)
@@ -3054,8 +3060,8 @@ class $$PayeeTemplatesTableTableManager extends RootTableManager<
               getPrefetchedDataCallback: (items) async {
                 return [
                   if (postingTemplatesRefs)
-                    await $_getPrefetchedData<PayeeTemplate,
-                            $PayeeTemplatesTable, PostingTemplate>(
+                    await $_getPrefetchedData<PayeeTemplateRow,
+                            $PayeeTemplatesTable, PostingTemplateRow>(
                         currentTable: table,
                         referencedTable: $$PayeeTemplatesTableReferences
                             ._postingTemplatesRefsTable(db),
@@ -3076,14 +3082,14 @@ class $$PayeeTemplatesTableTableManager extends RootTableManager<
 typedef $$PayeeTemplatesTableProcessedTableManager = ProcessedTableManager<
     _$AppDatabase,
     $PayeeTemplatesTable,
-    PayeeTemplate,
+    PayeeTemplateRow,
     $$PayeeTemplatesTableFilterComposer,
     $$PayeeTemplatesTableOrderingComposer,
     $$PayeeTemplatesTableAnnotationComposer,
     $$PayeeTemplatesTableCreateCompanionBuilder,
     $$PayeeTemplatesTableUpdateCompanionBuilder,
-    (PayeeTemplate, $$PayeeTemplatesTableReferences),
-    PayeeTemplate,
+    (PayeeTemplateRow, $$PayeeTemplatesTableReferences),
+    PayeeTemplateRow,
     PrefetchHooks Function({bool payeeId, bool postingTemplatesRefs})>;
 typedef $$PostingTemplatesTableCreateCompanionBuilder
     = PostingTemplatesCompanion Function({
@@ -3109,7 +3115,7 @@ typedef $$PostingTemplatesTableUpdateCompanionBuilder
 });
 
 final class $$PostingTemplatesTableReferences extends BaseReferences<
-    _$AppDatabase, $PostingTemplatesTable, PostingTemplate> {
+    _$AppDatabase, $PostingTemplatesTable, PostingTemplateRow> {
   $$PostingTemplatesTableReferences(
       super.$_db, super.$_table, super.$_typedResult);
 
@@ -3346,14 +3352,14 @@ class $$PostingTemplatesTableAnnotationComposer
 class $$PostingTemplatesTableTableManager extends RootTableManager<
     _$AppDatabase,
     $PostingTemplatesTable,
-    PostingTemplate,
+    PostingTemplateRow,
     $$PostingTemplatesTableFilterComposer,
     $$PostingTemplatesTableOrderingComposer,
     $$PostingTemplatesTableAnnotationComposer,
     $$PostingTemplatesTableCreateCompanionBuilder,
     $$PostingTemplatesTableUpdateCompanionBuilder,
-    (PostingTemplate, $$PostingTemplatesTableReferences),
-    PostingTemplate,
+    (PostingTemplateRow, $$PostingTemplatesTableReferences),
+    PostingTemplateRow,
     PrefetchHooks Function({bool payeeTemplateId, bool accountId})> {
   $$PostingTemplatesTableTableManager(
       _$AppDatabase db, $PostingTemplatesTable table)
@@ -3466,14 +3472,14 @@ class $$PostingTemplatesTableTableManager extends RootTableManager<
 typedef $$PostingTemplatesTableProcessedTableManager = ProcessedTableManager<
     _$AppDatabase,
     $PostingTemplatesTable,
-    PostingTemplate,
+    PostingTemplateRow,
     $$PostingTemplatesTableFilterComposer,
     $$PostingTemplatesTableOrderingComposer,
     $$PostingTemplatesTableAnnotationComposer,
     $$PostingTemplatesTableCreateCompanionBuilder,
     $$PostingTemplatesTableUpdateCompanionBuilder,
-    (PostingTemplate, $$PostingTemplatesTableReferences),
-    PostingTemplate,
+    (PostingTemplateRow, $$PostingTemplatesTableReferences),
+    PostingTemplateRow,
     PrefetchHooks Function({bool payeeTemplateId, bool accountId})>;
 typedef $$TransactionsTableCreateCompanionBuilder = TransactionsCompanion
     Function({
@@ -3507,7 +3513,7 @@ typedef $$TransactionsTableUpdateCompanionBuilder = TransactionsCompanion
 });
 
 final class $$TransactionsTableReferences
-    extends BaseReferences<_$AppDatabase, $TransactionsTable, Transaction> {
+    extends BaseReferences<_$AppDatabase, $TransactionsTable, TransactionRow> {
   $$TransactionsTableReferences(super.$_db, super.$_table, super.$_typedResult);
 
   static $PayeesTable _payeeIdTable(_$AppDatabase db) => db.payees
@@ -3524,11 +3530,11 @@ final class $$TransactionsTableReferences
         manager.$state.copyWith(prefetchedData: [item]));
   }
 
-  static MultiTypedResultKey<$PostingsTable, List<Posting>> _postingsRefsTable(
-          _$AppDatabase db) =>
-      MultiTypedResultKey.fromTable(db.postings,
-          aliasName: $_aliasNameGenerator(
-              db.transactions.id, db.postings.transactionId));
+  static MultiTypedResultKey<$PostingsTable, List<PostingRow>>
+      _postingsRefsTable(_$AppDatabase db) =>
+          MultiTypedResultKey.fromTable(db.postings,
+              aliasName: $_aliasNameGenerator(
+                  db.transactions.id, db.postings.transactionId));
 
   $$PostingsTableProcessedTableManager get postingsRefs {
     final manager = $$PostingsTableTableManager($_db, $_db.postings).filter(
@@ -3771,14 +3777,14 @@ class $$TransactionsTableAnnotationComposer
 class $$TransactionsTableTableManager extends RootTableManager<
     _$AppDatabase,
     $TransactionsTable,
-    Transaction,
+    TransactionRow,
     $$TransactionsTableFilterComposer,
     $$TransactionsTableOrderingComposer,
     $$TransactionsTableAnnotationComposer,
     $$TransactionsTableCreateCompanionBuilder,
     $$TransactionsTableUpdateCompanionBuilder,
-    (Transaction, $$TransactionsTableReferences),
-    Transaction,
+    (TransactionRow, $$TransactionsTableReferences),
+    TransactionRow,
     PrefetchHooks Function({bool payeeId, bool postingsRefs})> {
   $$TransactionsTableTableManager(_$AppDatabase db, $TransactionsTable table)
       : super(TableManagerState(
@@ -3885,8 +3891,8 @@ class $$TransactionsTableTableManager extends RootTableManager<
               getPrefetchedDataCallback: (items) async {
                 return [
                   if (postingsRefs)
-                    await $_getPrefetchedData<Transaction, $TransactionsTable,
-                            Posting>(
+                    await $_getPrefetchedData<TransactionRow, $TransactionsTable,
+                            PostingRow>(
                         currentTable: table,
                         referencedTable: $$TransactionsTableReferences
                             ._postingsRefsTable(db),
@@ -3907,14 +3913,14 @@ class $$TransactionsTableTableManager extends RootTableManager<
 typedef $$TransactionsTableProcessedTableManager = ProcessedTableManager<
     _$AppDatabase,
     $TransactionsTable,
-    Transaction,
+    TransactionRow,
     $$TransactionsTableFilterComposer,
     $$TransactionsTableOrderingComposer,
     $$TransactionsTableAnnotationComposer,
     $$TransactionsTableCreateCompanionBuilder,
     $$TransactionsTableUpdateCompanionBuilder,
-    (Transaction, $$TransactionsTableReferences),
-    Transaction,
+    (TransactionRow, $$TransactionsTableReferences),
+    TransactionRow,
     PrefetchHooks Function({bool payeeId, bool postingsRefs})>;
 typedef $$PostingsTableCreateCompanionBuilder = PostingsCompanion Function({
   required String id,
@@ -3938,7 +3944,7 @@ typedef $$PostingsTableUpdateCompanionBuilder = PostingsCompanion Function({
 });
 
 final class $$PostingsTableReferences
-    extends BaseReferences<_$AppDatabase, $PostingsTable, Posting> {
+    extends BaseReferences<_$AppDatabase, $PostingsTable, PostingRow> {
   $$PostingsTableReferences(super.$_db, super.$_table, super.$_typedResult);
 
   static $TransactionsTable _transactionIdTable(_$AppDatabase db) =>
@@ -4173,14 +4179,14 @@ class $$PostingsTableAnnotationComposer
 class $$PostingsTableTableManager extends RootTableManager<
     _$AppDatabase,
     $PostingsTable,
-    Posting,
+    PostingRow,
     $$PostingsTableFilterComposer,
     $$PostingsTableOrderingComposer,
     $$PostingsTableAnnotationComposer,
     $$PostingsTableCreateCompanionBuilder,
     $$PostingsTableUpdateCompanionBuilder,
-    (Posting, $$PostingsTableReferences),
-    Posting,
+    (PostingRow, $$PostingsTableReferences),
+    PostingRow,
     PrefetchHooks Function({bool transactionId, bool accountId})> {
   $$PostingsTableTableManager(_$AppDatabase db, $PostingsTable table)
       : super(TableManagerState(
@@ -4287,14 +4293,14 @@ class $$PostingsTableTableManager extends RootTableManager<
 typedef $$PostingsTableProcessedTableManager = ProcessedTableManager<
     _$AppDatabase,
     $PostingsTable,
-    Posting,
+    PostingRow,
     $$PostingsTableFilterComposer,
     $$PostingsTableOrderingComposer,
     $$PostingsTableAnnotationComposer,
     $$PostingsTableCreateCompanionBuilder,
     $$PostingsTableUpdateCompanionBuilder,
-    (Posting, $$PostingsTableReferences),
-    Posting,
+    (PostingRow, $$PostingsTableReferences),
+    PostingRow,
     PrefetchHooks Function({bool transactionId, bool accountId})>;
 
 class $AppDatabaseManager {
