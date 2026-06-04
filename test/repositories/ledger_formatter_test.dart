@@ -75,7 +75,7 @@ void main() {
       );
 
       final output = formatter.formatTransaction(transaction);
-      expect(output, contains('; Weekly grocery run'));
+      expect(output, contains(';; Weekly grocery run'));
     });
 
     test('real postings appear before budget mirror postings', () {
@@ -169,7 +169,7 @@ void main() {
       );
 
       final output = formatter.formatTransaction(transaction);
-      expect(output, contains('; TransactionTime: 13:42'));
+      expect(output, contains(';; TransactionTime: 13:42'));
     });
 
     test('TransactionTime defaults to createdAt when not specified', () {
@@ -186,7 +186,7 @@ void main() {
       );
 
       final output = formatter.formatTransaction(transaction);
-      expect(output, contains('; TransactionTime: 09:05'));
+      expect(output, contains(';; TransactionTime: 09:05'));
     });
 
     test('TransactionTime tag appears before postings', () {

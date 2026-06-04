@@ -21,8 +21,8 @@ class LedgerFormatter {
   /// Example output:
   /// ```
   /// 2024/01/15 Whole Foods
-  ///     ; Picked up groceries and snacks
-  ///     ; TransactionTime: 13:42
+  ///     ;; Picked up groceries and snacks
+  ///     ;; TransactionTime: 13:42
   ///     Expenses:Food                                                         $45.00
   ///     Assets:Budget:Food                                                   $-45.00
   ///     Assets:Bank:Checking                                                 $-45.00
@@ -37,11 +37,11 @@ class LedgerFormatter {
 
     // Transaction-level note as a comment
     if (transaction.note != null && transaction.note!.isNotEmpty) {
-      buffer.writeln('    ; ${transaction.note}');
+      buffer.writeln('    ;; ${transaction.note}');
     }
 
     // Transaction time as a Ledger tag
-    buffer.writeln('    ; TransactionTime: ${_formatTime(transaction.time)}');
+    buffer.writeln('    ;; TransactionTime: ${_formatTime(transaction.time)}');
 
     // Postings: real postings first, then budget mirror postings
     final ordered = [
@@ -87,7 +87,7 @@ class LedgerFormatter {
 
     // Per-posting memo as inline comment
     if (posting.memo != null && posting.memo!.isNotEmpty) {
-      return '$line  ; ${posting.memo}';
+      return '$line  ;; ${posting.memo}';
     }
     return line;
   }
