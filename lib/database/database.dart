@@ -7,6 +7,7 @@ part 'database.g.dart';
 // ─────────────────────────────────────────────
 
 /// Accounts table. Stores both Ledger and YNAB identities for each account.
+@DataClassName('AccountRow')
 class Accounts extends Table {
   TextColumn get id => text()();
   TextColumn get ledgerName => text()();
@@ -18,6 +19,7 @@ class Accounts extends Table {
 }
 
 /// Payees table.
+@DataClassName('PayeeRow')
 class Payees extends Table {
   TextColumn get id => text()();
   TextColumn get name => text()();
@@ -27,6 +29,7 @@ class Payees extends Table {
 }
 
 /// Payee templates table. Each payee has one or more named templates.
+@DataClassName('PayeeTemplateRow')
 class PayeeTemplates extends Table {
   TextColumn get id => text()();
   TextColumn get payeeId => text().references(Payees, #id)();
@@ -42,6 +45,7 @@ class PayeeTemplates extends Table {
 }
 
 /// Posting templates belonging to a PayeeTemplate.
+@DataClassName('PostingTemplateRow')
 class PostingTemplates extends Table {
   TextColumn get id => text()();
   TextColumn get payeeTemplateId =>
@@ -59,6 +63,7 @@ class PostingTemplates extends Table {
 }
 
 /// Transactions queue. Each row is a pending or synced transaction.
+@DataClassName('TransactionRow')
 class Transactions extends Table {
   TextColumn get id => text()();
 
@@ -92,6 +97,7 @@ class Transactions extends Table {
 }
 
 /// Individual postings belonging to a Transaction.
+@DataClassName('PostingRow')
 class Postings extends Table {
   TextColumn get id => text()();
   TextColumn get transactionId =>
@@ -142,19 +148,19 @@ class AccountDao {
   final AppDatabase _db;
   AccountDao(this._db);
 
-  Future<List<Account>> allAccounts() =>
+  Future<List<AccountRow>> allAccounts() =>
       _db.select(_db.accounts).get();
 
-  Stream<List<Account>> watchAllAccounts() =>
+  Stream<List<AccountRow>> watchAllAccounts() =>
       _db.select(_db.accounts).watch();
 
-  Future<Account?> findById(String id) =>
+  Future<AccountRow?> findById(String id) =>
       (_db.select(_db.accounts)..where((a) => a.id.equals(id)))
           .getSingleOrNull();
 
   /// Search accounts by partial match on ledgerName or ynabName.
   /// Used for the typeahead widget.
-  Future<List<Account>> search(String query) {
+  Future<List<AccountRow>> search(String query) {
     final q = '%${query.toLowerCase()}%';
     return (_db.select(_db.accounts)
           ..where((a) =>
@@ -175,27 +181,27 @@ class PayeeDao {
   final AppDatabase _db;
   PayeeDao(this._db);
 
-  Future<List<Payee>> allPayees() =>
+  Future<List<PayeeRow>> allPayees() =>
       _db.select(_db.payees).get();
 
   /// Search payees by partial name match. Used for the payee typeahead.
-  Future<List<Payee>> search(String query) {
+  Future<List<PayeeRow>> search(String query) {
     final q = '%${query.toLowerCase()}%';
     return (_db.select(_db.payees)
           ..where((p) => p.name.lower().like(q)))
         .get();
   }
 
-  Future<Payee?> findById(String id) =>
+  Future<PayeeRow?> findById(String id) =>
       (_db.select(_db.payees)..where((p) => p.id.equals(id)))
           .getSingleOrNull();
 
-  Future<List<PayeeTemplate>> templatesForPayee(String payeeId) =>
+  Future<List<PayeeTemplateRow>> templatesForPayee(String payeeId) =>
       (_db.select(_db.payeeTemplates)
             ..where((t) => t.payeeId.equals(payeeId)))
           .get();
 
-  Future<List<PostingTemplate>> postingsForTemplate(String templateId) =>
+  Future<List<PostingTemplateRow>> postingsForTemplate(String templateId) =>
       (_db.select(_db.postingTemplates)
             ..where((p) => p.payeeTemplateId.equals(templateId))
             ..orderBy([(p) => OrderingTerm.asc(p.sortOrder)]))
@@ -217,14 +223,14 @@ class TransactionDao {
   TransactionDao(this._db);
 
   /// All pending transactions (not yet fully synced).
-  Future<List<Transaction>> pendingTransactions() =>
+  Future<List<TransactionRow>> pendingTransactions() =>
       (_db.select(_db.transactions)
             ..where((t) =>
                 t.ynabSyncStatus.equals('pending') |
                 t.ledgerSyncStatus.equals('pending')))
           .get();
 
-  Stream<List<Transaction>> watchPendingTransactions() =>
+  Stream<List<TransactionRow>> watchPendingTransactions() =>
       (_db.select(_db.transactions)
             ..where((t) =>
                 t.ynabSyncStatus.equals('pending') |
@@ -232,7 +238,7 @@ class TransactionDao {
             ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
           .watch();
 
-  Future<List<Posting>> postingsForTransaction(String transactionId) =>
+  Future<List<PostingRow>> postingsForTransaction(String transactionId) =>
       (_db.select(_db.postings)
             ..where((p) => p.transactionId.equals(transactionId))
             ..orderBy([(p) => OrderingTerm.asc(p.sortOrder)]))

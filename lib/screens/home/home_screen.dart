@@ -48,12 +48,12 @@ class HomeScreen extends ConsumerWidget {
 
 /// Watches the pending transactions stream from the database.
 final _pendingTransactionsProvider =
-    StreamProvider<List<Transaction>>((ref) {
+    StreamProvider<List<TransactionRow>>((ref) {
   return ref.watch(transactionDaoProvider).watchPendingTransactions();
 });
 
 class _TransactionList extends StatelessWidget {
-  final List<Transaction> transactions;
+  final List<TransactionRow> transactions;
 
   const _TransactionList({required this.transactions});
 
@@ -67,8 +67,7 @@ class _TransactionList extends StatelessWidget {
           title: Text(tx.payeeName),
           subtitle: Text(tx.date.toLocal().toString().substring(0, 10)),
           trailing: _SyncStatusIndicator(tx: tx),
-          onTap: () =>
-              context.push(Routes.editTransactionPath(tx.id)),
+          onTap: () => context.push(Routes.editTransactionPath(tx.id)),
         );
       },
     );
@@ -76,7 +75,7 @@ class _TransactionList extends StatelessWidget {
 }
 
 class _SyncStatusIndicator extends StatelessWidget {
-  final Transaction tx;
+  final TransactionRow tx;
 
   const _SyncStatusIndicator({required this.tx});
 
