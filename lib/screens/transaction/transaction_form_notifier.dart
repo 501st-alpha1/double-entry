@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import '../../database/dao_providers.dart';
@@ -137,9 +138,9 @@ class TransactionFormNotifier extends StateNotifier<TransactionFormState> {
           type: state.type.name,
           date: state.date,
           time: state.time,
-          payeeId: db.Value(payeeId),
+          payeeId: Value(payeeId),
           payeeName: state.payeeNameRaw.trim(),
-          note: db.Value(state.note),
+          note: Value(state.note),
           createdAt: now,
         ),
       );
@@ -156,9 +157,9 @@ class TransactionFormNotifier extends StateNotifier<TransactionFormState> {
             transactionId: transactionId,
             accountId: row.account!.id,
             amountMilliunits: amount,
-            memo: db.Value(row.memo),
-            isBudgetMirror: const db.Value(false),
-            sortOrder: db.Value(sortOrder++),
+            memo: Value(row.memo),
+            isBudgetMirror: const Value(false),
+            sortOrder: Value(sortOrder++),
           ),
         );
 
@@ -175,8 +176,8 @@ class TransactionFormNotifier extends StateNotifier<TransactionFormState> {
               transactionId: transactionId,
               accountId: mirrorAccountId,
               amountMilliunits: -amount,
-              isBudgetMirror: const db.Value(true),
-              sortOrder: db.Value(sortOrder++),
+              isBudgetMirror: const Value(true),
+              sortOrder: Value(sortOrder++),
             ),
           );
 
@@ -190,8 +191,8 @@ class TransactionFormNotifier extends StateNotifier<TransactionFormState> {
               transactionId: transactionId,
               accountId: offsetAccountId,
               amountMilliunits: amount,
-              isBudgetMirror: const db.Value(true),
-              sortOrder: db.Value(sortOrder++),
+              isBudgetMirror: const Value(true),
+              sortOrder: Value(sortOrder++),
             ),
           );
         }
