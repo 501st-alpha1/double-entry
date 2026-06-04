@@ -1200,6 +1200,11 @@ class $TransactionsTable extends Transactions
   late final GeneratedColumn<String> note = GeneratedColumn<String>(
       'note', aliasedName, true,
       type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _timeMeta = const VerificationMeta('time');
+  @override
+  late final GeneratedColumn<DateTime> time = GeneratedColumn<DateTime>(
+      'time', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
   static const VerificationMeta _ynabSyncStatusMeta =
       const VerificationMeta('ynabSyncStatus');
   @override
@@ -1236,6 +1241,7 @@ class $TransactionsTable extends Transactions
         payeeId,
         payeeName,
         note,
+        time,
         ynabSyncStatus,
         ledgerSyncStatus,
         ynabTransactionId,
@@ -1282,6 +1288,12 @@ class $TransactionsTable extends Transactions
       context.handle(
           _noteMeta, note.isAcceptableOrUnknown(data['note']!, _noteMeta));
     }
+    if (data.containsKey('time')) {
+      context.handle(
+          _timeMeta, time.isAcceptableOrUnknown(data['time']!, _timeMeta));
+    } else if (isInserting) {
+      context.missing(_timeMeta);
+    }
     if (data.containsKey('ynab_sync_status')) {
       context.handle(
           _ynabSyncStatusMeta,
@@ -1327,6 +1339,8 @@ class $TransactionsTable extends Transactions
           .read(DriftSqlType.string, data['${effectivePrefix}payee_name'])!,
       note: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}note']),
+      time: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}time'])!,
       ynabSyncStatus: attachedDatabase.typeMapping.read(
           DriftSqlType.string, data['${effectivePrefix}ynab_sync_status'])!,
       ledgerSyncStatus: attachedDatabase.typeMapping.read(
@@ -1356,6 +1370,10 @@ class Transaction extends DataClass implements Insertable<Transaction> {
   final String payeeName;
   final String? note;
 
+  /// Time of the transaction, stored separately from date.
+  /// Output as a Ledger tag; not sent to YNAB.
+  final DateTime time;
+
   /// "pending", "synced", "failed"
   final String ynabSyncStatus;
   final String ledgerSyncStatus;
@@ -1368,6 +1386,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       this.payeeId,
       required this.payeeName,
       this.note,
+      required this.time,
       required this.ynabSyncStatus,
       required this.ledgerSyncStatus,
       this.ynabTransactionId,
@@ -1385,6 +1404,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     if (!nullToAbsent || note != null) {
       map['note'] = Variable<String>(note);
     }
+    map['time'] = Variable<DateTime>(time);
     map['ynab_sync_status'] = Variable<String>(ynabSyncStatus);
     map['ledger_sync_status'] = Variable<String>(ledgerSyncStatus);
     if (!nullToAbsent || ynabTransactionId != null) {
@@ -1404,6 +1424,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           : Value(payeeId),
       payeeName: Value(payeeName),
       note: note == null && nullToAbsent ? const Value.absent() : Value(note),
+      time: Value(time),
       ynabSyncStatus: Value(ynabSyncStatus),
       ledgerSyncStatus: Value(ledgerSyncStatus),
       ynabTransactionId: ynabTransactionId == null && nullToAbsent
@@ -1423,6 +1444,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       payeeId: serializer.fromJson<String?>(json['payeeId']),
       payeeName: serializer.fromJson<String>(json['payeeName']),
       note: serializer.fromJson<String?>(json['note']),
+      time: serializer.fromJson<DateTime>(json['time']),
       ynabSyncStatus: serializer.fromJson<String>(json['ynabSyncStatus']),
       ledgerSyncStatus: serializer.fromJson<String>(json['ledgerSyncStatus']),
       ynabTransactionId:
@@ -1440,6 +1462,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       'payeeId': serializer.toJson<String?>(payeeId),
       'payeeName': serializer.toJson<String>(payeeName),
       'note': serializer.toJson<String?>(note),
+      'time': serializer.toJson<DateTime>(time),
       'ynabSyncStatus': serializer.toJson<String>(ynabSyncStatus),
       'ledgerSyncStatus': serializer.toJson<String>(ledgerSyncStatus),
       'ynabTransactionId': serializer.toJson<String?>(ynabTransactionId),
@@ -1454,6 +1477,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           Value<String?> payeeId = const Value.absent(),
           String? payeeName,
           Value<String?> note = const Value.absent(),
+          DateTime? time,
           String? ynabSyncStatus,
           String? ledgerSyncStatus,
           Value<String?> ynabTransactionId = const Value.absent(),
@@ -1465,6 +1489,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
         payeeId: payeeId.present ? payeeId.value : this.payeeId,
         payeeName: payeeName ?? this.payeeName,
         note: note.present ? note.value : this.note,
+        time: time ?? this.time,
         ynabSyncStatus: ynabSyncStatus ?? this.ynabSyncStatus,
         ledgerSyncStatus: ledgerSyncStatus ?? this.ledgerSyncStatus,
         ynabTransactionId: ynabTransactionId.present
@@ -1480,6 +1505,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       payeeId: data.payeeId.present ? data.payeeId.value : this.payeeId,
       payeeName: data.payeeName.present ? data.payeeName.value : this.payeeName,
       note: data.note.present ? data.note.value : this.note,
+      time: data.time.present ? data.time.value : this.time,
       ynabSyncStatus: data.ynabSyncStatus.present
           ? data.ynabSyncStatus.value
           : this.ynabSyncStatus,
@@ -1502,6 +1528,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           ..write('payeeId: $payeeId, ')
           ..write('payeeName: $payeeName, ')
           ..write('note: $note, ')
+          ..write('time: $time, ')
           ..write('ynabSyncStatus: $ynabSyncStatus, ')
           ..write('ledgerSyncStatus: $ledgerSyncStatus, ')
           ..write('ynabTransactionId: $ynabTransactionId, ')
@@ -1512,7 +1539,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
 
   @override
   int get hashCode => Object.hash(id, type, date, payeeId, payeeName, note,
-      ynabSyncStatus, ledgerSyncStatus, ynabTransactionId, createdAt);
+      time, ynabSyncStatus, ledgerSyncStatus, ynabTransactionId, createdAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1523,6 +1550,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           other.payeeId == this.payeeId &&
           other.payeeName == this.payeeName &&
           other.note == this.note &&
+          other.time == this.time &&
           other.ynabSyncStatus == this.ynabSyncStatus &&
           other.ledgerSyncStatus == this.ledgerSyncStatus &&
           other.ynabTransactionId == this.ynabTransactionId &&
@@ -1536,6 +1564,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
   final Value<String?> payeeId;
   final Value<String> payeeName;
   final Value<String?> note;
+  final Value<DateTime> time;
   final Value<String> ynabSyncStatus;
   final Value<String> ledgerSyncStatus;
   final Value<String?> ynabTransactionId;
@@ -1548,6 +1577,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     this.payeeId = const Value.absent(),
     this.payeeName = const Value.absent(),
     this.note = const Value.absent(),
+    this.time = const Value.absent(),
     this.ynabSyncStatus = const Value.absent(),
     this.ledgerSyncStatus = const Value.absent(),
     this.ynabTransactionId = const Value.absent(),
@@ -1561,6 +1591,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     this.payeeId = const Value.absent(),
     required String payeeName,
     this.note = const Value.absent(),
+    required DateTime time,
     this.ynabSyncStatus = const Value.absent(),
     this.ledgerSyncStatus = const Value.absent(),
     this.ynabTransactionId = const Value.absent(),
@@ -1570,6 +1601,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
         type = Value(type),
         date = Value(date),
         payeeName = Value(payeeName),
+        time = Value(time),
         createdAt = Value(createdAt);
   static Insertable<Transaction> custom({
     Expression<String>? id,
@@ -1578,6 +1610,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     Expression<String>? payeeId,
     Expression<String>? payeeName,
     Expression<String>? note,
+    Expression<DateTime>? time,
     Expression<String>? ynabSyncStatus,
     Expression<String>? ledgerSyncStatus,
     Expression<String>? ynabTransactionId,
@@ -1591,6 +1624,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
       if (payeeId != null) 'payee_id': payeeId,
       if (payeeName != null) 'payee_name': payeeName,
       if (note != null) 'note': note,
+      if (time != null) 'time': time,
       if (ynabSyncStatus != null) 'ynab_sync_status': ynabSyncStatus,
       if (ledgerSyncStatus != null) 'ledger_sync_status': ledgerSyncStatus,
       if (ynabTransactionId != null) 'ynab_transaction_id': ynabTransactionId,
@@ -1606,6 +1640,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
       Value<String?>? payeeId,
       Value<String>? payeeName,
       Value<String?>? note,
+      Value<DateTime>? time,
       Value<String>? ynabSyncStatus,
       Value<String>? ledgerSyncStatus,
       Value<String?>? ynabTransactionId,
@@ -1618,6 +1653,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
       payeeId: payeeId ?? this.payeeId,
       payeeName: payeeName ?? this.payeeName,
       note: note ?? this.note,
+      time: time ?? this.time,
       ynabSyncStatus: ynabSyncStatus ?? this.ynabSyncStatus,
       ledgerSyncStatus: ledgerSyncStatus ?? this.ledgerSyncStatus,
       ynabTransactionId: ynabTransactionId ?? this.ynabTransactionId,
@@ -1647,6 +1683,9 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     if (note.present) {
       map['note'] = Variable<String>(note.value);
     }
+    if (time.present) {
+      map['time'] = Variable<DateTime>(time.value);
+    }
     if (ynabSyncStatus.present) {
       map['ynab_sync_status'] = Variable<String>(ynabSyncStatus.value);
     }
@@ -1674,6 +1713,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
           ..write('payeeId: $payeeId, ')
           ..write('payeeName: $payeeName, ')
           ..write('note: $note, ')
+          ..write('time: $time, ')
           ..write('ynabSyncStatus: $ynabSyncStatus, ')
           ..write('ledgerSyncStatus: $ledgerSyncStatus, ')
           ..write('ynabTransactionId: $ynabTransactionId, ')
@@ -3443,6 +3483,7 @@ typedef $$TransactionsTableCreateCompanionBuilder = TransactionsCompanion
   Value<String?> payeeId,
   required String payeeName,
   Value<String?> note,
+  required DateTime time,
   Value<String> ynabSyncStatus,
   Value<String> ledgerSyncStatus,
   Value<String?> ynabTransactionId,
@@ -3457,6 +3498,7 @@ typedef $$TransactionsTableUpdateCompanionBuilder = TransactionsCompanion
   Value<String?> payeeId,
   Value<String> payeeName,
   Value<String?> note,
+  Value<DateTime> time,
   Value<String> ynabSyncStatus,
   Value<String> ledgerSyncStatus,
   Value<String?> ynabTransactionId,
@@ -3521,6 +3563,9 @@ class $$TransactionsTableFilterComposer
 
   ColumnFilters<String> get note => $composableBuilder(
       column: $table.note, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get time => $composableBuilder(
+      column: $table.time, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<String> get ynabSyncStatus => $composableBuilder(
       column: $table.ynabSyncStatus,
@@ -3603,6 +3648,9 @@ class $$TransactionsTableOrderingComposer
   ColumnOrderings<String> get note => $composableBuilder(
       column: $table.note, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<DateTime> get time => $composableBuilder(
+      column: $table.time, builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<String> get ynabSyncStatus => $composableBuilder(
       column: $table.ynabSyncStatus,
       builder: (column) => ColumnOrderings(column));
@@ -3662,6 +3710,9 @@ class $$TransactionsTableAnnotationComposer
 
   GeneratedColumn<String> get note =>
       $composableBuilder(column: $table.note, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get time =>
+      $composableBuilder(column: $table.time, builder: (column) => column);
 
   GeneratedColumn<String> get ynabSyncStatus => $composableBuilder(
       column: $table.ynabSyncStatus, builder: (column) => column);
@@ -3746,6 +3797,7 @@ class $$TransactionsTableTableManager extends RootTableManager<
             Value<String?> payeeId = const Value.absent(),
             Value<String> payeeName = const Value.absent(),
             Value<String?> note = const Value.absent(),
+            Value<DateTime> time = const Value.absent(),
             Value<String> ynabSyncStatus = const Value.absent(),
             Value<String> ledgerSyncStatus = const Value.absent(),
             Value<String?> ynabTransactionId = const Value.absent(),
@@ -3759,6 +3811,7 @@ class $$TransactionsTableTableManager extends RootTableManager<
             payeeId: payeeId,
             payeeName: payeeName,
             note: note,
+            time: time,
             ynabSyncStatus: ynabSyncStatus,
             ledgerSyncStatus: ledgerSyncStatus,
             ynabTransactionId: ynabTransactionId,
@@ -3772,6 +3825,7 @@ class $$TransactionsTableTableManager extends RootTableManager<
             Value<String?> payeeId = const Value.absent(),
             required String payeeName,
             Value<String?> note = const Value.absent(),
+            required DateTime time,
             Value<String> ynabSyncStatus = const Value.absent(),
             Value<String> ledgerSyncStatus = const Value.absent(),
             Value<String?> ynabTransactionId = const Value.absent(),
@@ -3785,6 +3839,7 @@ class $$TransactionsTableTableManager extends RootTableManager<
             payeeId: payeeId,
             payeeName: payeeName,
             note: note,
+            time: time,
             ynabSyncStatus: ynabSyncStatus,
             ledgerSyncStatus: ledgerSyncStatus,
             ynabTransactionId: ynabTransactionId,
