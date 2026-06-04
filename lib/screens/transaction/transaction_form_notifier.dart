@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import '../../database/dao_providers.dart';
 import '../../database/database.dart' as db;
+import '../../database/database.dart' show PayeeDao;
 import '../../models/models.dart';
 import 'transaction_form_state.dart';
 
