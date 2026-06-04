@@ -22,6 +22,7 @@ class LedgerFormatter {
   /// ```
   /// 2024/01/15 Whole Foods
   ///     ; Picked up groceries and snacks
+  ///     ; TransactionTime: 13:42
   ///     Expenses:Food                                                         $45.00
   ///     Assets:Budget:Food                                                   $-45.00
   ///     Assets:Bank:Checking                                                 $-45.00
@@ -38,6 +39,9 @@ class LedgerFormatter {
     if (transaction.note != null && transaction.note!.isNotEmpty) {
       buffer.writeln('    ; ${transaction.note}');
     }
+
+    // Transaction time as a Ledger tag
+    buffer.writeln('    ; TransactionTime: ${_formatTime(transaction.time)}');
 
     // Postings: real postings first, then budget mirror postings
     final ordered = [
@@ -57,9 +61,11 @@ class LedgerFormatter {
     return transactions.map(formatTransaction).join('\n');
   }
 
-  // ─────────────────────────────────────────────
-  // Private helpers
-  // ─────────────────────────────────────────────
+  String _formatTime(DateTime time) {
+    final h = time.hour.toString().padLeft(2, '0');
+    final m = time.minute.toString().padLeft(2, '0');
+    return '$h:$m';
+  }
 
   String _formatDate(DateTime date) {
     final y = date.year.toString().padLeft(4, '0');

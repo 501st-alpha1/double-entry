@@ -154,6 +154,60 @@ void main() {
       expect(output, contains('\n\n'));
     });
 
+    test('includes TransactionTime tag with HH:MM format', () {
+      final transaction = Transaction(
+        id: 'tx-7',
+        type: TransactionType.expense,
+        date: DateTime(2024, 1, 15),
+        payee: 'Whole Foods',
+        postings: [
+          Posting(account: foodExpense, amountMilliunits: 45000),
+          Posting(account: bankAccount, amountMilliunits: -45000),
+        ],
+        createdAt: DateTime(2024, 1, 15, 9, 5), // 09:05
+        time: DateTime(2024, 1, 15, 13, 42),
+      );
+
+      final output = formatter.formatTransaction(transaction);
+      expect(output, contains('; TransactionTime: 13:42'));
+    });
+
+    test('TransactionTime defaults to createdAt when not specified', () {
+      final transaction = Transaction(
+        id: 'tx-8',
+        type: TransactionType.expense,
+        date: DateTime(2024, 1, 15),
+        payee: 'Whole Foods',
+        postings: [
+          Posting(account: foodExpense, amountMilliunits: 45000),
+          Posting(account: bankAccount, amountMilliunits: -45000),
+        ],
+        createdAt: DateTime(2024, 1, 15, 9, 5),
+      );
+
+      final output = formatter.formatTransaction(transaction);
+      expect(output, contains('; TransactionTime: 09:05'));
+    });
+
+    test('TransactionTime tag appears before postings', () {
+      final transaction = Transaction(
+        id: 'tx-9',
+        type: TransactionType.expense,
+        date: DateTime(2024, 1, 15),
+        payee: 'Whole Foods',
+        postings: [
+          Posting(account: foodExpense, amountMilliunits: 45000),
+          Posting(account: bankAccount, amountMilliunits: -45000),
+        ],
+        createdAt: DateTime(2024, 1, 15, 13, 42),
+      );
+
+      final output = formatter.formatTransaction(transaction);
+      final timeIdx = output.indexOf('TransactionTime');
+      final postingIdx = output.indexOf('Expenses:Food');
+      expect(timeIdx, lessThan(postingIdx));
+    });
+
     test('amount formatting: milliunits to display string', () {
       final tx = Transaction(
         id: 'tx-6',

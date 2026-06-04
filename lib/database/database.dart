@@ -73,6 +73,10 @@ class Transactions extends Table {
 
   TextColumn get note => text().nullable()();
 
+  /// Time of the transaction, stored separately from date.
+  /// Output as a Ledger tag; not sent to YNAB.
+  DateTimeColumn get time => dateTime()();
+
   /// "pending", "synced", "failed"
   TextColumn get ynabSyncStatus =>
       text().withDefault(const Constant('pending'))();

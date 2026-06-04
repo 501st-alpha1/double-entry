@@ -51,7 +51,11 @@ class Transaction {
 
   final DateTime createdAt;
 
-  const Transaction({
+  /// The time of the transaction. Defaults to createdAt if not specified.
+  /// Not sent to YNAB; output as a Ledger tag: "; TransactionTime: 13:42"
+  final DateTime time;
+
+  Transaction({
     required this.id,
     required this.type,
     required this.date,
@@ -62,7 +66,8 @@ class Transaction {
     this.ledgerSyncStatus = SyncStatus.pending,
     this.ynabTransactionId,
     required this.createdAt,
-  });
+    DateTime? time,
+  }) : time = time ?? createdAt;
 
   /// Whether this transaction is fully synced to both systems.
   bool get isFullySynced =>
@@ -92,6 +97,7 @@ class Transaction {
     SyncStatus? ledgerSyncStatus,
     String? ynabTransactionId,
     DateTime? createdAt,
+    DateTime? time,
   }) {
     return Transaction(
       id: id ?? this.id,
@@ -104,6 +110,7 @@ class Transaction {
       ledgerSyncStatus: ledgerSyncStatus ?? this.ledgerSyncStatus,
       ynabTransactionId: ynabTransactionId ?? this.ynabTransactionId,
       createdAt: createdAt ?? this.createdAt,
+      time: time ?? this.time,
     );
   }
 
