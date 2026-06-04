@@ -222,6 +222,14 @@ class TransactionDao {
   final AppDatabase _db;
   TransactionDao(this._db);
 
+  Future<TransactionRow?> findById(String id) =>
+      (_db.select(_db.transactions)..where((t) => t.id.equals(id)))
+          .getSingleOrNull();
+
+  Stream<TransactionRow?> watchById(String id) =>
+      (_db.select(_db.transactions)..where((t) => t.id.equals(id)))
+          .watchSingleOrNull();
+
   /// All pending transactions (not yet fully synced).
   Future<List<TransactionRow>> pendingTransactions() =>
       (_db.select(_db.transactions)
