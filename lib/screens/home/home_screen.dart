@@ -28,6 +28,11 @@ class HomeScreen extends ConsumerWidget {
                   ),
             orElse: () => const SizedBox.shrink(),
           ),
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: 'Settings',
+            onPressed: () => context.push(Routes.settings),
+          ),
         ],
       ),
       body: pendingAsync.when(

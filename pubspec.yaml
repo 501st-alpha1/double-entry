@@ -26,6 +26,9 @@ dependencies:
   # Secure credential storage (uses hardware-backed Keystore, GMS-free)
   flutter_secure_storage: ^9.2.2
 
+  # Non-sensitive settings storage
+  shared_preferences: ^2.3.2
+
   # Routing
   go_router: ^14.2.0
 
