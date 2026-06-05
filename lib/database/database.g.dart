@@ -1777,6 +1777,16 @@ class $PostingsTable extends Postings
       defaultConstraints: GeneratedColumn.constraintIsAlways(
           'CHECK ("is_budget_mirror" IN (0, 1))'),
       defaultValue: const Constant(false));
+  static const VerificationMeta _isSourceMeta =
+      const VerificationMeta('isSource');
+  @override
+  late final GeneratedColumn<bool> isSource = GeneratedColumn<bool>(
+      'is_source', aliasedName, false,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('CHECK ("is_source" IN (0, 1))'),
+      defaultValue: const Constant(false));
   static const VerificationMeta _sortOrderMeta =
       const VerificationMeta('sortOrder');
   @override
@@ -1793,6 +1803,7 @@ class $PostingsTable extends Postings
         amountMilliunits,
         memo,
         isBudgetMirror,
+        isSource,
         sortOrder
       ];
   @override
@@ -1842,6 +1853,10 @@ class $PostingsTable extends Postings
           isBudgetMirror.isAcceptableOrUnknown(
               data['is_budget_mirror']!, _isBudgetMirrorMeta));
     }
+    if (data.containsKey('is_source')) {
+      context.handle(_isSourceMeta,
+          isSource.isAcceptableOrUnknown(data['is_source']!, _isSourceMeta));
+    }
     if (data.containsKey('sort_order')) {
       context.handle(_sortOrderMeta,
           sortOrder.isAcceptableOrUnknown(data['sort_order']!, _sortOrderMeta));
@@ -1867,6 +1882,8 @@ class $PostingsTable extends Postings
           .read(DriftSqlType.string, data['${effectivePrefix}memo']),
       isBudgetMirror: attachedDatabase.typeMapping
           .read(DriftSqlType.bool, data['${effectivePrefix}is_budget_mirror'])!,
+      isSource: attachedDatabase.typeMapping
+          .read(DriftSqlType.bool, data['${effectivePrefix}is_source'])!,
       sortOrder: attachedDatabase.typeMapping
           .read(DriftSqlType.int, data['${effectivePrefix}sort_order'])!,
     );
@@ -1886,6 +1903,10 @@ class PostingRow extends DataClass implements Insertable<PostingRow> {
   final String? memo;
   final bool isBudgetMirror;
 
+  /// Whether this is the primary source account for YNAB sync.
+  /// Exactly one non-mirror posting per transaction should have this set.
+  final bool isSource;
+
   /// Display order within the transaction
   final int sortOrder;
   const PostingRow(
@@ -1895,6 +1916,7 @@ class PostingRow extends DataClass implements Insertable<PostingRow> {
       required this.amountMilliunits,
       this.memo,
       required this.isBudgetMirror,
+      required this.isSource,
       required this.sortOrder});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1907,6 +1929,7 @@ class PostingRow extends DataClass implements Insertable<PostingRow> {
       map['memo'] = Variable<String>(memo);
     }
     map['is_budget_mirror'] = Variable<bool>(isBudgetMirror);
+    map['is_source'] = Variable<bool>(isSource);
     map['sort_order'] = Variable<int>(sortOrder);
     return map;
   }
@@ -1919,6 +1942,7 @@ class PostingRow extends DataClass implements Insertable<PostingRow> {
       amountMilliunits: Value(amountMilliunits),
       memo: memo == null && nullToAbsent ? const Value.absent() : Value(memo),
       isBudgetMirror: Value(isBudgetMirror),
+      isSource: Value(isSource),
       sortOrder: Value(sortOrder),
     );
   }
@@ -1933,6 +1957,7 @@ class PostingRow extends DataClass implements Insertable<PostingRow> {
       amountMilliunits: serializer.fromJson<int>(json['amountMilliunits']),
       memo: serializer.fromJson<String?>(json['memo']),
       isBudgetMirror: serializer.fromJson<bool>(json['isBudgetMirror']),
+      isSource: serializer.fromJson<bool>(json['isSource']),
       sortOrder: serializer.fromJson<int>(json['sortOrder']),
     );
   }
@@ -1946,6 +1971,7 @@ class PostingRow extends DataClass implements Insertable<PostingRow> {
       'amountMilliunits': serializer.toJson<int>(amountMilliunits),
       'memo': serializer.toJson<String?>(memo),
       'isBudgetMirror': serializer.toJson<bool>(isBudgetMirror),
+      'isSource': serializer.toJson<bool>(isSource),
       'sortOrder': serializer.toJson<int>(sortOrder),
     };
   }
@@ -1957,6 +1983,7 @@ class PostingRow extends DataClass implements Insertable<PostingRow> {
           int? amountMilliunits,
           Value<String?> memo = const Value.absent(),
           bool? isBudgetMirror,
+          bool? isSource,
           int? sortOrder}) =>
       PostingRow(
         id: id ?? this.id,
@@ -1965,6 +1992,7 @@ class PostingRow extends DataClass implements Insertable<PostingRow> {
         amountMilliunits: amountMilliunits ?? this.amountMilliunits,
         memo: memo.present ? memo.value : this.memo,
         isBudgetMirror: isBudgetMirror ?? this.isBudgetMirror,
+        isSource: isSource ?? this.isSource,
         sortOrder: sortOrder ?? this.sortOrder,
       );
   PostingRow copyWithCompanion(PostingsCompanion data) {
@@ -1981,6 +2009,7 @@ class PostingRow extends DataClass implements Insertable<PostingRow> {
       isBudgetMirror: data.isBudgetMirror.present
           ? data.isBudgetMirror.value
           : this.isBudgetMirror,
+      isSource: data.isSource.present ? data.isSource.value : this.isSource,
       sortOrder: data.sortOrder.present ? data.sortOrder.value : this.sortOrder,
     );
   }
@@ -1994,6 +2023,7 @@ class PostingRow extends DataClass implements Insertable<PostingRow> {
           ..write('amountMilliunits: $amountMilliunits, ')
           ..write('memo: $memo, ')
           ..write('isBudgetMirror: $isBudgetMirror, ')
+          ..write('isSource: $isSource, ')
           ..write('sortOrder: $sortOrder')
           ..write(')'))
         .toString();
@@ -2001,7 +2031,7 @@ class PostingRow extends DataClass implements Insertable<PostingRow> {
 
   @override
   int get hashCode => Object.hash(id, transactionId, accountId,
-      amountMilliunits, memo, isBudgetMirror, sortOrder);
+      amountMilliunits, memo, isBudgetMirror, isSource, sortOrder);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -2012,6 +2042,7 @@ class PostingRow extends DataClass implements Insertable<PostingRow> {
           other.amountMilliunits == this.amountMilliunits &&
           other.memo == this.memo &&
           other.isBudgetMirror == this.isBudgetMirror &&
+          other.isSource == this.isSource &&
           other.sortOrder == this.sortOrder);
 }
 
@@ -2022,6 +2053,7 @@ class PostingsCompanion extends UpdateCompanion<PostingRow> {
   final Value<int> amountMilliunits;
   final Value<String?> memo;
   final Value<bool> isBudgetMirror;
+  final Value<bool> isSource;
   final Value<int> sortOrder;
   final Value<int> rowid;
   const PostingsCompanion({
@@ -2031,6 +2063,7 @@ class PostingsCompanion extends UpdateCompanion<PostingRow> {
     this.amountMilliunits = const Value.absent(),
     this.memo = const Value.absent(),
     this.isBudgetMirror = const Value.absent(),
+    this.isSource = const Value.absent(),
     this.sortOrder = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -2041,6 +2074,7 @@ class PostingsCompanion extends UpdateCompanion<PostingRow> {
     required int amountMilliunits,
     this.memo = const Value.absent(),
     this.isBudgetMirror = const Value.absent(),
+    this.isSource = const Value.absent(),
     this.sortOrder = const Value.absent(),
     this.rowid = const Value.absent(),
   })  : id = Value(id),
@@ -2054,6 +2088,7 @@ class PostingsCompanion extends UpdateCompanion<PostingRow> {
     Expression<int>? amountMilliunits,
     Expression<String>? memo,
     Expression<bool>? isBudgetMirror,
+    Expression<bool>? isSource,
     Expression<int>? sortOrder,
     Expression<int>? rowid,
   }) {
@@ -2064,6 +2099,7 @@ class PostingsCompanion extends UpdateCompanion<PostingRow> {
       if (amountMilliunits != null) 'amount_milliunits': amountMilliunits,
       if (memo != null) 'memo': memo,
       if (isBudgetMirror != null) 'is_budget_mirror': isBudgetMirror,
+      if (isSource != null) 'is_source': isSource,
       if (sortOrder != null) 'sort_order': sortOrder,
       if (rowid != null) 'rowid': rowid,
     });
@@ -2076,6 +2112,7 @@ class PostingsCompanion extends UpdateCompanion<PostingRow> {
       Value<int>? amountMilliunits,
       Value<String?>? memo,
       Value<bool>? isBudgetMirror,
+      Value<bool>? isSource,
       Value<int>? sortOrder,
       Value<int>? rowid}) {
     return PostingsCompanion(
@@ -2085,6 +2122,7 @@ class PostingsCompanion extends UpdateCompanion<PostingRow> {
       amountMilliunits: amountMilliunits ?? this.amountMilliunits,
       memo: memo ?? this.memo,
       isBudgetMirror: isBudgetMirror ?? this.isBudgetMirror,
+      isSource: isSource ?? this.isSource,
       sortOrder: sortOrder ?? this.sortOrder,
       rowid: rowid ?? this.rowid,
     );
@@ -2111,6 +2149,9 @@ class PostingsCompanion extends UpdateCompanion<PostingRow> {
     if (isBudgetMirror.present) {
       map['is_budget_mirror'] = Variable<bool>(isBudgetMirror.value);
     }
+    if (isSource.present) {
+      map['is_source'] = Variable<bool>(isSource.value);
+    }
     if (sortOrder.present) {
       map['sort_order'] = Variable<int>(sortOrder.value);
     }
@@ -2129,6 +2170,7 @@ class PostingsCompanion extends UpdateCompanion<PostingRow> {
           ..write('amountMilliunits: $amountMilliunits, ')
           ..write('memo: $memo, ')
           ..write('isBudgetMirror: $isBudgetMirror, ')
+          ..write('isSource: $isSource, ')
           ..write('sortOrder: $sortOrder, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -3929,6 +3971,7 @@ typedef $$PostingsTableCreateCompanionBuilder = PostingsCompanion Function({
   required int amountMilliunits,
   Value<String?> memo,
   Value<bool> isBudgetMirror,
+  Value<bool> isSource,
   Value<int> sortOrder,
   Value<int> rowid,
 });
@@ -3939,6 +3982,7 @@ typedef $$PostingsTableUpdateCompanionBuilder = PostingsCompanion Function({
   Value<int> amountMilliunits,
   Value<String?> memo,
   Value<bool> isBudgetMirror,
+  Value<bool> isSource,
   Value<int> sortOrder,
   Value<int> rowid,
 });
@@ -3999,6 +4043,9 @@ class $$PostingsTableFilterComposer
   ColumnFilters<bool> get isBudgetMirror => $composableBuilder(
       column: $table.isBudgetMirror,
       builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get isSource => $composableBuilder(
+      column: $table.isSource, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<int> get sortOrder => $composableBuilder(
       column: $table.sortOrder, builder: (column) => ColumnFilters(column));
@@ -4067,6 +4114,9 @@ class $$PostingsTableOrderingComposer
       column: $table.isBudgetMirror,
       builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<bool> get isSource => $composableBuilder(
+      column: $table.isSource, builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<int> get sortOrder => $composableBuilder(
       column: $table.sortOrder, builder: (column) => ColumnOrderings(column));
 
@@ -4131,6 +4181,9 @@ class $$PostingsTableAnnotationComposer
 
   GeneratedColumn<bool> get isBudgetMirror => $composableBuilder(
       column: $table.isBudgetMirror, builder: (column) => column);
+
+  GeneratedColumn<bool> get isSource =>
+      $composableBuilder(column: $table.isSource, builder: (column) => column);
 
   GeneratedColumn<int> get sortOrder =>
       $composableBuilder(column: $table.sortOrder, builder: (column) => column);
@@ -4205,6 +4258,7 @@ class $$PostingsTableTableManager extends RootTableManager<
             Value<int> amountMilliunits = const Value.absent(),
             Value<String?> memo = const Value.absent(),
             Value<bool> isBudgetMirror = const Value.absent(),
+            Value<bool> isSource = const Value.absent(),
             Value<int> sortOrder = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
@@ -4215,6 +4269,7 @@ class $$PostingsTableTableManager extends RootTableManager<
             amountMilliunits: amountMilliunits,
             memo: memo,
             isBudgetMirror: isBudgetMirror,
+            isSource: isSource,
             sortOrder: sortOrder,
             rowid: rowid,
           ),
@@ -4225,6 +4280,7 @@ class $$PostingsTableTableManager extends RootTableManager<
             required int amountMilliunits,
             Value<String?> memo = const Value.absent(),
             Value<bool> isBudgetMirror = const Value.absent(),
+            Value<bool> isSource = const Value.absent(),
             Value<int> sortOrder = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
@@ -4235,6 +4291,7 @@ class $$PostingsTableTableManager extends RootTableManager<
             amountMilliunits: amountMilliunits,
             memo: memo,
             isBudgetMirror: isBudgetMirror,
+            isSource: isSource,
             sortOrder: sortOrder,
             rowid: rowid,
           ),
