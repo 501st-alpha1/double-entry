@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 /// A wrapper around [Autocomplete] that adds keyboard navigation:
-/// - Tab or Enter selects the first (or highlighted) option and closes the menu
+/// - Tab or Enter selects the first option and closes the menu
 /// - After selection, Tab moves focus to the next field as normal
 ///
 /// [T] is the option type. [displayStringForOption], [optionsBuilder], and
@@ -39,6 +39,9 @@ class _KeyboardAutocompleteState<T extends Object>
   // Holds the most recent options list so Tab/Enter can select from it.
   Iterable<T> _lastOptions = const [];
 
+  // Used to programmatically dismiss the options overlay.
+  final _optionsController = OverlayPortalController();
+
   @override
   Widget build(BuildContext context) {
     return Autocomplete<T>(
@@ -46,25 +49,27 @@ class _KeyboardAutocompleteState<T extends Object>
       initialValue: widget.initialValue,
       optionsBuilder: (value) async {
         final options = await widget.optionsBuilder(value);
-        _lastOptions = options;
+        if (mounted) {
+          setState(() => _lastOptions = options);
+        }
         return options;
       },
-      onSelected: widget.onSelected,
+      onSelected: (option) {
+        setState(() => _lastOptions = const []);
+        widget.onSelected(option);
+      },
       fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
-        return KeyboardListener(
-          focusNode: FocusNode(skipTraversal: true),
-          onKeyEvent: (event) {
-            if (event is! KeyDownEvent) return;
+        return Focus(
+          onKeyEvent: (node, event) {
+            if (event is! KeyDownEvent) return KeyEventResult.ignored;
 
             final isTab = event.logicalKey == LogicalKeyboardKey.tab;
-            final isEnter =
-                event.logicalKey == LogicalKeyboardKey.enter ||
+            final isEnter = event.logicalKey == LogicalKeyboardKey.enter ||
                 event.logicalKey == LogicalKeyboardKey.numpadEnter;
 
             if ((isTab || isEnter) && _lastOptions.isNotEmpty) {
               // Select the first option
               final selected = _lastOptions.first;
-              widget.onSelected(selected);
 
               // Update the text field to show the selected value
               controller.text = widget.displayStringForOption(selected);
@@ -72,17 +77,21 @@ class _KeyboardAutocompleteState<T extends Object>
                 offset: controller.text.length,
               );
 
-              // Clear options so the menu closes
-              _lastOptions = const [];
+              // Fire onSelected and clear options
+              widget.onSelected(selected);
+              setState(() => _lastOptions = const []);
 
               if (isTab) {
                 // Move focus to next field
                 focusNode.nextFocus();
-              } else {
-                // Enter just closes the menu, stays in field
-                focusNode.requestFocus();
               }
+
+              // Handled — don't propagate so the Tab doesn't also
+              // move focus a second time via the normal traversal.
+              return KeyEventResult.handled;
             }
+
+            return KeyEventResult.ignored;
           },
           child: widget.fieldViewBuilder(
             context,
