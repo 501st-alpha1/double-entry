@@ -341,7 +341,7 @@ class _PostingRowState extends ConsumerState<_PostingRow> {
   }
 }
 
-class _AccountTypeahead extends ConsumerWidget {
+class _AccountTypeahead extends ConsumerStatefulWidget {
   final String rowId;
   final Account? selectedAccount;
   final ValueChanged<Account> onSelected;
@@ -353,19 +353,38 @@ class _AccountTypeahead extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_AccountTypeahead> createState() => _AccountTypeaheadState();
+}
+
+class _AccountTypeaheadState extends ConsumerState<_AccountTypeahead> {
+  @override
+  Widget build(BuildContext context) {
     return Autocomplete<AccountRow>(
       displayStringForOption: (a) => a.ledgerName,
-      initialValue: selectedAccount != null
-          ? TextEditingValue(text: selectedAccount!.ledgerName)
+      initialValue: widget.selectedAccount != null
+          ? TextEditingValue(text: widget.selectedAccount!.ledgerName)
           : null,
       optionsBuilder: (textEditingValue) async {
         if (textEditingValue.text.isEmpty) return [];
         final accountDao = ref.read(accountDaoProvider);
         return accountDao.search(textEditingValue.text);
       },
-      onSelected: (row) => onSelected(_accountRowToModel(row)),
+      onSelected: (row) => widget.onSelected(_accountRowToModel(row)),
       fieldViewBuilder: (context, controller, focusNode, onSubmitted) {
+        // Commit whatever is typed when the field loses focus,
+        // creating a minimal Account if no suggestion was selected.
+        focusNode.addListener(() {
+          if (!focusNode.hasFocus && controller.text.trim().isNotEmpty) {
+            final text = controller.text.trim();
+            // Only commit if the account isn't already set to this value
+            if (widget.selectedAccount?.ledgerName != text) {
+              widget.onSelected(Account(
+                id: '', // will be resolved or created on save
+                ledgerName: text,
+              ));
+            }
+          }
+        });
         return TextField(
           controller: controller,
           focusNode: focusNode,
