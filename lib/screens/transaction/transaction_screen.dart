@@ -207,14 +207,6 @@ class _PayeeField extends ConsumerStatefulWidget {
 }
 
 class _PayeeFieldState extends ConsumerState<_PayeeField> {
-  final _controller = TextEditingController();
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
     final notifier = ref.read(transactionFormProvider.notifier);
@@ -222,6 +214,8 @@ class _PayeeFieldState extends ConsumerState<_PayeeField> {
     return Autocomplete<PayeeRow>(
       displayStringForOption: (p) => p.name,
       optionsBuilder: (textEditingValue) async {
+        // Keep payeeNameRaw in sync with whatever is in the field
+        notifier.setPayeeRaw(textEditingValue.text);
         if (textEditingValue.text.isEmpty) return [];
         final payeeDao = ref.read(payeeDaoProvider);
         return payeeDao.search(textEditingValue.text);
@@ -235,7 +229,6 @@ class _PayeeFieldState extends ConsumerState<_PayeeField> {
             labelText: 'Payee',
             hintText: 'e.g. Whole Foods',
           ),
-          onChanged: notifier.setPayeeRaw,
           textCapitalization: TextCapitalization.words,
         );
       },
