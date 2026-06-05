@@ -259,15 +259,46 @@ class _PostingRowList extends ConsumerWidget {
   }
 }
 
-class _PostingRow extends ConsumerWidget {
+class _PostingRow extends ConsumerStatefulWidget {
   final PostingFormRow row;
 
   const _PostingRow({required this.row});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_PostingRow> createState() => _PostingRowState();
+}
+
+class _PostingRowState extends ConsumerState<_PostingRow> {
+  late final TextEditingController _amountController;
+
+  @override
+  void initState() {
+    super.initState();
+    _amountController =
+        TextEditingController(text: widget.row.amountRaw);
+  }
+
+  @override
+  void didUpdateWidget(_PostingRow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Sync controller if state was updated externally (e.g. payee autofill)
+    if (oldWidget.row.amountRaw != widget.row.amountRaw &&
+        _amountController.text != widget.row.amountRaw) {
+      _amountController.text = widget.row.amountRaw;
+    }
+  }
+
+  @override
+  void dispose() {
+    _amountController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final notifier = ref.read(transactionFormProvider.notifier);
     final rows = ref.watch(transactionFormProvider).postingRows;
+    final row = widget.row;
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -288,6 +319,7 @@ class _PostingRow extends ConsumerWidget {
         Expanded(
           flex: 2,
           child: TextField(
+            controller: _amountController,
             decoration: InputDecoration(
               labelText: 'Amount',
               prefixText: '\$',
@@ -296,8 +328,8 @@ class _PostingRow extends ConsumerWidget {
                   ? 'Invalid'
                   : null,
             ),
-            keyboardType:
-                const TextInputType.numberWithOptions(decimal: true),
+            keyboardType: const TextInputType.numberWithOptions(
+                decimal: true, signed: true),
             onChanged: (v) => notifier.setPostingAmount(row.rowId, v),
           ),
         ),
