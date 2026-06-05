@@ -187,28 +187,39 @@ class TransactionFormNotifier extends StateNotifier<TransactionFormState> {
       final transactionDao = _ref.read(transactionDaoProvider);
       final payeeDao = _ref.read(payeeDaoProvider);
 
-      // If editing, delete old postings and transaction first
-      if (existingId != null) {
-        await transactionDao.deletePostingsForTransaction(existingId);
-        await transactionDao.deleteTransaction(existingId);
-      }
-
       // Resolve or create payee
       final payeeId = await _resolvePayeeId(payeeDao, savePayeeDefaults);
 
-      // Insert transaction
-      await transactionDao.insertTransaction(
-        db.TransactionsCompanion.insert(
-          id: transactionId,
-          type: state.type.name,
-          date: state.date,
-          time: state.time,
-          payeeId: Value(payeeId),
-          payeeName: state.payeeNameRaw.trim(),
-          note: Value(state.note),
-          createdAt: now,
-        ),
-      );
+      // If editing, delete old postings and update the transaction row in place.
+      // This preserves the original createdAt and transaction ID.
+      if (existingId != null) {
+        await transactionDao.deletePostingsForTransaction(existingId);
+        await transactionDao.updateTransaction(
+          existingId,
+          db.TransactionsCompanion(
+            type: Value(state.type.name),
+            date: Value(state.date),
+            time: Value(state.time),
+            payeeId: Value(payeeId),
+            payeeName: Value(state.payeeNameRaw.trim()),
+            note: Value(state.note),
+          ),
+        );
+      } else {
+        // New transaction — insert fresh
+        await transactionDao.insertTransaction(
+          db.TransactionsCompanion.insert(
+            id: transactionId,
+            type: state.type.name,
+            date: state.date,
+            time: state.time,
+            payeeId: Value(payeeId),
+            payeeName: state.payeeNameRaw.trim(),
+            note: Value(state.note),
+            createdAt: now,
+          ),
+        );
+      }
 
       // Insert real postings + derived budget mirror postings
       int sortOrder = 0;
