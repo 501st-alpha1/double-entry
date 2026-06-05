@@ -67,7 +67,7 @@ class _TransactionList extends StatelessWidget {
           title: Text(tx.payeeName),
           subtitle: Text(tx.date.toLocal().toString().substring(0, 10)),
           trailing: _SyncStatusIndicator(tx: tx),
-          onTap: () => context.push(Routes.editTransactionPath(tx.id)),
+          onTap: () => context.push(Routes.transactionDetailPath(tx.id)),
         );
       },
     );

@@ -9,9 +9,11 @@ import '../screens/transaction/transaction_detail_screen.dart';
 class Routes {
   static const home = '/';
   static const newTransaction = '/transaction/new';
-  static const editTransaction = '/transaction/:id';
+  static const transactionDetail = '/transaction/:id';
+  static const editTransaction = '/transaction/:id/edit';
 
-  static String editTransactionPath(String id) => '/transaction/$id';
+  static String transactionDetailPath(String id) => '/transaction/$id';
+  static String editTransactionPath(String id) => '/transaction/$id/edit';
 }
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -27,10 +29,17 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const TransactionScreen(),
       ),
       GoRoute(
-        path: Routes.editTransaction,
+        path: Routes.transactionDetail,
         builder: (context, state) {
           final id = state.pathParameters['id']!;
           return TransactionDetailScreen(transactionId: id);
+        },
+      ),
+      GoRoute(
+        path: Routes.editTransaction,
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          return TransactionScreen(editTransactionId: id);
         },
       ),
     ],

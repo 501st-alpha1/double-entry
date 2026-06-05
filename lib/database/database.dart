@@ -278,6 +278,14 @@ class TransactionDao {
             : const Value.absent(),
       ));
 
+  Future<void> deleteTransaction(String id) =>
+      (_db.delete(_db.transactions)..where((t) => t.id.equals(id))).go();
+
+  Future<void> deletePostingsForTransaction(String transactionId) =>
+      (_db.delete(_db.postings)
+            ..where((p) => p.transactionId.equals(transactionId)))
+          .go();
+
   /// Delete transactions that are fully synced to both systems.
   Future<void> deleteFullySynced() =>
       (_db.delete(_db.transactions)

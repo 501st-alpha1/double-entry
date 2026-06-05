@@ -23,16 +23,37 @@ Account _accountRowToModel(AccountRow row) => Account(
       ynabName: row.ynabName,
     );
 
-class TransactionScreen extends ConsumerWidget {
-  const TransactionScreen({super.key});
+class TransactionScreen extends ConsumerStatefulWidget {
+  final String? editTransactionId;
+
+  const TransactionScreen({super.key, this.editTransactionId});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TransactionScreen> createState() => _TransactionScreenState();
+}
+
+class _TransactionScreenState extends ConsumerState<TransactionScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // If editing, load the existing transaction after the first frame
+    if (widget.editTransactionId != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref
+            .read(transactionFormProvider.notifier)
+            .initializeFromExisting(widget.editTransactionId!);
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final formState = ref.watch(transactionFormProvider);
+    final isEditing = widget.editTransactionId != null;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('New Transaction'),
+        title: Text(isEditing ? 'Edit Transaction' : 'New Transaction'),
         actions: [
           TextButton(
             onPressed: formState.isValid
@@ -87,7 +108,7 @@ class TransactionScreen extends ConsumerWidget {
             const SizedBox(height: 24),
 
             // Save buttons
-            _SaveButtons(),
+            _SaveButtons(isEditing: isEditing),
           ],
         ),
       ),
@@ -97,7 +118,9 @@ class TransactionScreen extends ConsumerWidget {
   Future<void> _save(BuildContext context, WidgetRef ref,
       {required bool saveAndNew}) async {
     final notifier = ref.read(transactionFormProvider.notifier);
-    final success = await notifier.save();
+    final success = await notifier.save(
+      existingId: widget.editTransactionId,
+    );
     if (success && context.mounted) {
       if (saveAndNew) {
         // Pop and immediately push a fresh form
@@ -438,6 +461,10 @@ class _NoteField extends ConsumerWidget {
 }
 
 class _SaveButtons extends ConsumerWidget {
+  final bool isEditing;
+
+  const _SaveButtons({required this.isEditing});
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(transactionFormProvider);
@@ -456,15 +483,17 @@ class _SaveButtons extends ConsumerWidget {
             child: const Text('Save'),
           ),
         ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: OutlinedButton(
-            onPressed: state.isValid
-                ? () => _save(context, ref, saveAndNew: true)
-                : null,
-            child: const Text('Save & New'),
+        if (!isEditing) ...[
+          const SizedBox(width: 8),
+          Expanded(
+            child: OutlinedButton(
+              onPressed: state.isValid
+                  ? () => _save(context, ref, saveAndNew: true)
+                  : null,
+              child: const Text('Save & New'),
+            ),
           ),
-        ),
+        ],
       ],
     );
   }

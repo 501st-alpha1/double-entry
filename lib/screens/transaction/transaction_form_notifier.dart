@@ -111,22 +111,74 @@ class TransactionFormNotifier extends StateNotifier<TransactionFormState> {
     );
   }
 
-  // ─────────────────────────────────────────────
-  // Save
-  // ─────────────────────────────────────────────
+  /// Loads an existing transaction into the form for editing.
+  Future<void> initializeFromExisting(String transactionId) async {
+    final transactionDao = _ref.read(transactionDaoProvider);
+    final accountDao = _ref.read(accountDaoProvider);
+
+    final tx = await transactionDao.findById(transactionId);
+    if (tx == null) return;
+
+    final postingRows = await transactionDao.postingsForTransaction(transactionId);
+
+    // Build posting rows from real (non-mirror) postings only
+    final rows = await Future.wait(
+      postingRows
+          .where((p) => !p.isBudgetMirror)
+          .map((p) async {
+            final accountRow = await accountDao.findById(p.accountId);
+            final account = accountRow != null
+                ? Account(
+                    id: accountRow.id,
+                    ledgerName: accountRow.ledgerName,
+                    ynabId: accountRow.ynabId,
+                    ynabName: accountRow.ynabName,
+                  )
+                : null;
+            return PostingFormRow(
+              rowId: _uuid.v4(),
+              account: account,
+              amountRaw: _milliunitsToRaw(p.amountMilliunits),
+              memo: p.memo,
+            );
+          }),
+    );
+
+    // Parse TransactionType from stored string
+    final type = TransactionType.values.firstWhere(
+      (t) => t.name == tx.type,
+      orElse: () => TransactionType.expense,
+    );
+
+    state = TransactionFormState(
+      type: type,
+      date: tx.date,
+      time: tx.time,
+      payeeNameRaw: tx.payeeName,
+      postingRows: rows.isEmpty ? [PostingFormRow(rowId: _uuid.v4())] : rows,
+      note: tx.note,
+    );
+  }
 
   /// Saves the transaction to the local queue and optionally updates
   /// the payee's default template.
-  Future<bool> save({bool savePayeeDefaults = false}) async {
+  /// If [existingId] is provided, deletes the old record and reinserts.
+  Future<bool> save({bool savePayeeDefaults = false, String? existingId}) async {
     if (!state.isValid) return false;
 
     state = state.copyWith(isSaving: true, clearError: true);
 
     try {
-      final transactionId = _uuid.v4();
+      final transactionId = existingId ?? _uuid.v4();
       final now = DateTime.now();
       final transactionDao = _ref.read(transactionDaoProvider);
       final payeeDao = _ref.read(payeeDaoProvider);
+
+      // If editing, delete old postings and transaction first
+      if (existingId != null) {
+        await transactionDao.deletePostingsForTransaction(existingId);
+        await transactionDao.deleteTransaction(existingId);
+      }
 
       // Resolve or create payee
       final payeeId = await _resolvePayeeId(payeeDao, savePayeeDefaults);
@@ -246,10 +298,12 @@ class TransactionFormNotifier extends StateNotifier<TransactionFormState> {
   }
 
   String _milliunitsToRaw(int milliunits) {
+    final isNegative = milliunits < 0;
     final abs = milliunits.abs();
     final dollars = abs ~/ 1000;
     final cents = (abs % 1000) ~/ 10;
-    return '$dollars.${cents.toString().padLeft(2, '0')}';
+    final value = '$dollars.${cents.toString().padLeft(2, '0')}';
+    return isNegative ? '-$value' : value;
   }
 }
 
