@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../models/models.dart';
 import '../../database/dao_providers.dart';
 import '../../database/database.dart' show AccountRow, PayeeRow;
+import '../../widgets/keyboard_autocomplete.dart';
 import 'transaction_form_state.dart';
 import 'transaction_form_notifier.dart';
 
@@ -234,7 +235,7 @@ class _PayeeFieldState extends ConsumerState<_PayeeField> {
   Widget build(BuildContext context) {
     final notifier = ref.read(transactionFormProvider.notifier);
 
-    return Autocomplete<PayeeRow>(
+    return KeyboardAutocomplete<PayeeRow>(
       displayStringForOption: (p) => p.name,
       optionsBuilder: (textEditingValue) async {
         // Keep payeeNameRaw in sync with whatever is in the field
@@ -399,7 +400,7 @@ class _AccountTypeahead extends ConsumerStatefulWidget {
 class _AccountTypeaheadState extends ConsumerState<_AccountTypeahead> {
   @override
   Widget build(BuildContext context) {
-    return Autocomplete<AccountRow>(
+    return KeyboardAutocomplete<AccountRow>(
       displayStringForOption: (a) => a.ledgerName,
       initialValue: widget.selectedAccount != null
           ? TextEditingValue(text: widget.selectedAccount!.ledgerName)
