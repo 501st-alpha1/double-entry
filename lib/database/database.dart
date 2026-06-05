@@ -293,7 +293,7 @@ class TransactionDao {
             : const Value.absent(),
       ));
 
-  Future<void> updateTransaction(String id, db.TransactionsCompanion data) =>
+  Future<void> updateTransaction(String id, TransactionsCompanion data) =>
       (_db.update(_db.transactions)..where((t) => t.id.equals(id)))
           .write(data);
 
