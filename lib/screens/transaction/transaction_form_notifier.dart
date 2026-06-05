@@ -226,12 +226,19 @@ class TransactionFormNotifier extends StateNotifier<TransactionFormState> {
       for (final row in state.postingRows) {
         final amount = row.amountMilliunits!;
 
+        // Resolve or create the account by ledgerName so typed accounts
+        // (which have an empty id) are correctly persisted.
+        final accountId = await _resolveOrCreateAccount(
+          row.account!.ledgerName,
+          existingId: row.account!.id.isNotEmpty ? row.account!.id : null,
+        );
+
         // Real posting
         await transactionDao.insertPosting(
           db.PostingsCompanion.insert(
             id: _uuid.v4(),
             transactionId: transactionId,
-            accountId: row.account!.id,
+            accountId: accountId,
             amountMilliunits: amount,
             memo: Value(row.memo),
             isBudgetMirror: const Value(false),
@@ -308,7 +315,11 @@ class TransactionFormNotifier extends StateNotifier<TransactionFormState> {
   }
 
   /// Finds an account by ledgerName or creates a minimal record if not found.
-  Future<String> _resolveOrCreateAccount(String ledgerName) async {
+  /// If [existingId] is provided and valid, uses it directly to skip the lookup.
+  Future<String> _resolveOrCreateAccount(String ledgerName,
+      {String? existingId}) async {
+    if (existingId != null && existingId.isNotEmpty) return existingId;
+
     final accountDao = _ref.read(accountDaoProvider);
     final existing = await accountDao.allAccounts().then(
           (list) => list.where((a) => a.ledgerName == ledgerName).firstOrNull,
