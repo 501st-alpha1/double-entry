@@ -108,6 +108,11 @@ class Postings extends Table {
   BoolColumn get isBudgetMirror =>
       boolean().withDefault(const Constant(false))();
 
+  /// Whether this is the primary source account for YNAB sync.
+  /// Exactly one non-mirror posting per transaction should have this set.
+  BoolColumn get isSource =>
+      boolean().withDefault(const Constant(false))();
+
   /// Display order within the transaction
   IntColumn get sortOrder => integer().withDefault(const Constant(0))();
 
@@ -131,7 +136,17 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+    onUpgrade: (m, from, to) async {
+      if (from < 2) {
+        // Add isSource column to postings table
+        await m.addColumn(postings, postings.isSource);
+      }
+    },
+  );
 
   // DAOs are defined below and attached here for convenience
   late final accountDao = AccountDao(this);

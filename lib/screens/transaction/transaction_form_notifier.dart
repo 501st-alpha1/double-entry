@@ -17,7 +17,7 @@ class TransactionFormNotifier extends StateNotifier<TransactionFormState> {
       : super(TransactionFormState(
           date: DateTime.now(),
           time: DateTime.now(),
-          postingRows: [PostingFormRow(rowId: _uuid.v4())],
+          postingRows: [PostingFormRow(rowId: _uuid.v4(), isSource: true)],
         ));
 
   // ─────────────────────────────────────────────
@@ -26,7 +26,7 @@ class TransactionFormNotifier extends StateNotifier<TransactionFormState> {
 
   void setType(TransactionType type) {
     state = state.copyWith(type: type, postingRows: [
-      PostingFormRow(rowId: _uuid.v4()),
+      PostingFormRow(rowId: _uuid.v4(), isSource: true),
     ]);
   }
 
@@ -48,22 +48,34 @@ class TransactionFormNotifier extends StateNotifier<TransactionFormState> {
     final template = payee.defaultTemplate;
     final rows = template.postingTemplates
         .where((t) => !t.isBudgetMirror)
-        .map((t) => PostingFormRow(
-              rowId: _uuid.v4(),
-              account: t.account,
-              amountRaw: t.defaultAmountMilliunits != null
-                  ? _milliunitsToRaw(t.defaultAmountMilliunits!)
-                  : '',
-              memo: t.memo,
-            ))
         .toList();
+
+    final formRows = rows.asMap().entries.map((e) => PostingFormRow(
+          rowId: _uuid.v4(),
+          account: e.value.account,
+          amountRaw: e.value.defaultAmountMilliunits != null
+              ? _milliunitsToRaw(e.value.defaultAmountMilliunits!)
+              : '',
+          memo: e.value.memo,
+          isSource: e.key == 0, // first row is source by default
+        )).toList();
 
     state = state.copyWith(
       payee: payee,
       payeeNameRaw: payee.name,
-      postingRows: rows.isEmpty
-          ? [PostingFormRow(rowId: _uuid.v4())]
-          : rows,
+      postingRows: formRows.isEmpty
+          ? [PostingFormRow(rowId: _uuid.v4(), isSource: true)]
+          : formRows,
+    );
+  }
+
+  /// Sets which posting row is the YNAB source account.
+  /// Clears isSource on all other rows.
+  void setSourcePosting(String rowId) {
+    state = state.copyWith(
+      postingRows: state.postingRows
+          .map((r) => r.copyWith(isSource: r.rowId == rowId))
+          .toList(),
     );
   }
 
@@ -140,6 +152,7 @@ class TransactionFormNotifier extends StateNotifier<TransactionFormState> {
               account: account,
               amountRaw: _milliunitsToRaw(p.amountMilliunits),
               memo: p.memo,
+              isSource: p.isSource,
             );
           }),
     );
@@ -211,6 +224,7 @@ class TransactionFormNotifier extends StateNotifier<TransactionFormState> {
             amountMilliunits: amount,
             memo: Value(row.memo),
             isBudgetMirror: const Value(false),
+            isSource: Value(row.isSource),
             sortOrder: Value(sortOrder++),
           ),
         );

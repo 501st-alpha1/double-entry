@@ -8,11 +8,15 @@ class PostingFormRow {
   final String amountRaw; // raw string as the user types it
   final String? memo;
 
+  /// Whether this is the primary source account for YNAB sync.
+  final bool isSource;
+
   const PostingFormRow({
     required this.rowId,
     this.account,
     this.amountRaw = '',
     this.memo,
+    this.isSource = false,
   });
 
   /// Parses amountRaw to milliunits. Returns null if invalid or empty.
@@ -29,12 +33,14 @@ class PostingFormRow {
     Account? account,
     String? amountRaw,
     String? memo,
+    bool? isSource,
   }) {
     return PostingFormRow(
       rowId: rowId,
       account: account ?? this.account,
       amountRaw: amountRaw ?? this.amountRaw,
       memo: memo ?? this.memo,
+      isSource: isSource ?? this.isSource,
     );
   }
 }

@@ -319,7 +319,24 @@ class _PostingRowState extends ConsumerState<_PostingRow> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Account typeahead
+        // Source account indicator — only shown when multiple rows exist
+        if (rows.length > 1)
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Tooltip(
+              message: row.isSource ? 'YNAB source account' : 'Set as YNAB source account',
+              child: IconButton(
+                icon: Icon(
+                  row.isSource ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                  size: 20,
+                  color: row.isSource
+                      ? Theme.of(context).colorScheme.primary
+                      : Theme.of(context).colorScheme.outline,
+                ),
+                onPressed: () => notifier.setSourcePosting(row.rowId),
+              ),
+            ),
+          ),
         Expanded(
           flex: 3,
           child: _AccountTypeahead(
