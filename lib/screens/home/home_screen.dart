@@ -140,23 +140,16 @@ class _UnlinkedAccountsBanner extends ConsumerWidget {
           color: Theme.of(context).colorScheme.error),
       actions: [
         TextButton(
-          onPressed: () => _showMappingForAll(context, ref),
+          onPressed: () => context.push(Routes.unlinkedAccounts),
           child: const Text('Link Now'),
         ),
         TextButton(
-          onPressed: () => ScaffoldMessenger.of(context).hideCurrentMaterialBanner(),
+          onPressed: () =>
+              ScaffoldMessenger.of(context).hideCurrentMaterialBanner(),
           child: const Text('Dismiss'),
         ),
       ],
     );
-  }
-
-  Future<void> _showMappingForAll(
-      BuildContext context, WidgetRef ref) async {
-    for (final account in accounts) {
-      if (!context.mounted) return;
-      await showYnabMappingSheet(context, ref, account);
-    }
   }
 }
 
