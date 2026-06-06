@@ -107,6 +107,19 @@ class TransactionFormNotifier extends StateNotifier<TransactionFormState> {
     );
   }
 
+  /// Stores a pending YNAB mapping for an unsaved account.
+  /// Applied to the account record when the transaction is saved.
+  void setPendingYnabMapping(
+      String rowId, String ynabId, String ynabName) {
+    state = state.copyWith(
+      postingRows: state.postingRows
+          .map((r) => r.rowId == rowId
+              ? r.copyWith(pendingYnabId: ynabId, pendingYnabName: ynabName)
+              : r)
+          .toList(),
+    );
+  }
+
   void addPostingRow() {
     state = state.copyWith(
       postingRows: [
@@ -226,11 +239,12 @@ class TransactionFormNotifier extends StateNotifier<TransactionFormState> {
       for (final row in state.postingRows) {
         final amount = row.amountMilliunits!;
 
-        // Resolve or create the account by ledgerName so typed accounts
-        // (which have an empty id) are correctly persisted.
+        // Resolve or create the account, applying any pending YNAB mapping
         final accountId = await _resolveOrCreateAccount(
           row.account!.ledgerName,
           existingId: row.account!.id.isNotEmpty ? row.account!.id : null,
+          pendingYnabId: row.pendingYnabId,
+          pendingYnabName: row.pendingYnabName,
         );
 
         // Real posting
@@ -316,8 +330,11 @@ class TransactionFormNotifier extends StateNotifier<TransactionFormState> {
 
   /// Finds an account by ledgerName or creates a minimal record if not found.
   /// If [existingId] is provided and valid, uses it directly to skip the lookup.
+  /// If [pendingYnabId] is provided, applies it when creating a new account.
   Future<String> _resolveOrCreateAccount(String ledgerName,
-      {String? existingId}) async {
+      {String? existingId,
+      String? pendingYnabId,
+      String? pendingYnabName}) async {
     if (existingId != null && existingId.isNotEmpty) return existingId;
 
     final accountDao = _ref.read(accountDaoProvider);
@@ -328,7 +345,12 @@ class TransactionFormNotifier extends StateNotifier<TransactionFormState> {
 
     final id = _uuid.v4();
     await accountDao.upsert(
-      db.AccountsCompanion.insert(id: id, ledgerName: ledgerName),
+      db.AccountsCompanion.insert(
+        id: id,
+        ledgerName: ledgerName,
+        ynabId: Value(pendingYnabId),
+        ynabName: Value(pendingYnabName),
+      ),
     );
     return id;
   }

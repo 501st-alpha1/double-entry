@@ -11,12 +11,19 @@ class PostingFormRow {
   /// Whether this is the primary source account for YNAB sync.
   final bool isSource;
 
+  /// Pending YNAB mapping for unsaved accounts, applied when the account
+  /// record is created on save.
+  final String? pendingYnabId;
+  final String? pendingYnabName;
+
   const PostingFormRow({
     required this.rowId,
     this.account,
     this.amountRaw = '',
     this.memo,
     this.isSource = false,
+    this.pendingYnabId,
+    this.pendingYnabName,
   });
 
   /// Parses amountRaw to milliunits. Returns null if invalid or empty.
@@ -34,6 +41,9 @@ class PostingFormRow {
     String? amountRaw,
     String? memo,
     bool? isSource,
+    String? pendingYnabId,
+    String? pendingYnabName,
+    bool clearPendingYnab = false,
   }) {
     return PostingFormRow(
       rowId: rowId,
@@ -41,6 +51,8 @@ class PostingFormRow {
       amountRaw: amountRaw ?? this.amountRaw,
       memo: memo ?? this.memo,
       isSource: isSource ?? this.isSource,
+      pendingYnabId: clearPendingYnab ? null : (pendingYnabId ?? this.pendingYnabId),
+      pendingYnabName: clearPendingYnab ? null : (pendingYnabName ?? this.pendingYnabName),
     );
   }
 }

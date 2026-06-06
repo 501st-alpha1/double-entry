@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../models/models.dart';
 import '../../database/dao_providers.dart';
 import '../../database/database.dart' show AccountRow, PayeeRow;
+import '../../repositories/ynab/ynab_reference_data.dart';
 import '../../widgets/keyboard_autocomplete.dart';
 import '../../widgets/ynab_mapping_sheet.dart';
 import 'transaction_form_state.dart';
@@ -385,26 +386,44 @@ class _PostingRowState extends ConsumerState<_PostingRow> {
     );
   }
 
+  /// Shows the mapping sheet but returns the selection as (ynabId, ynabName)
+  /// instead of writing to the DB. Used for unsaved accounts.
+  Future<(String, String)?> _showInMemoryMappingSheet(
+      BuildContext context, WidgetRef ref) {
+    return showModalBottomSheet<(String, String)?>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _InMemoryMappingSheet(),
+    );
+  }
+
   /// Shows the YNAB link button if the account has no ynabId,
   /// including accounts that haven't been saved to the DB yet.
   Widget _buildLinkButton(BuildContext context, PostingFormRow row) {
     if (row.account == null) return const SizedBox.shrink();
 
-    // Account not yet in DB (typed manually) — always show link button
+    // Account not yet in DB (typed manually) — show mapping sheet
+    // and store selection in form state for application on save
     if (row.account!.id.isEmpty) {
+      final hasPending = row.pendingYnabId != null;
       return Tooltip(
-        message: 'Link to YNAB (save transaction first)',
+        message: hasPending
+            ? 'Linked to YNAB: ${row.pendingYnabName}'
+            : 'Link to YNAB',
         child: IconButton(
-          icon: Icon(Icons.link,
-              size: 18, color: Theme.of(context).colorScheme.error),
-          onPressed: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
-                    'Save the transaction first, then link the account to YNAB.'),
-                duration: Duration(seconds: 3),
-              ),
-            );
+          icon: Icon(
+            hasPending ? Icons.link : Icons.link,
+            size: 18,
+            color: hasPending
+                ? Theme.of(context).colorScheme.primary
+                : Theme.of(context).colorScheme.error,
+          ),
+          onPressed: () async {
+            final result = await _showInMemoryMappingSheet(context, ref);
+            if (result != null) {
+              notifier.setPendingYnabMapping(
+                  row.rowId, result.$1, result.$2);
+            }
           },
         ),
       );
@@ -607,4 +626,108 @@ class _ErrorBanner extends StatelessWidget {
 
 extension on TransactionFormState {
   List<PostingFormRow> get rows => postingRows;
+}
+
+/// A mapping sheet variant that returns the selected (ynabId, ynabName)
+/// without writing to the DB. Used for accounts not yet saved.
+class _InMemoryMappingSheet extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final refDataAsync = ref.watch(ynabReferenceDataProvider);
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.7,
+      maxChildSize: 0.95,
+      minChildSize: 0.4,
+      expand: false,
+      builder: (context, scrollController) {
+        return Column(
+          children: [
+            const SizedBox(height: 8),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.outlineVariant,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text('Link to YNAB',
+                  style: Theme.of(context).textTheme.titleMedium),
+            ),
+            const SizedBox(height: 8),
+            const Divider(),
+            Expanded(
+              child: refDataAsync.when(
+                loading: () =>
+                    const Center(child: CircularProgressIndicator()),
+                error: (e, _) =>
+                    Center(child: Text('Failed to load YNAB data: $e')),
+                data: (refData) {
+                  if (refData == null) {
+                    return const Center(child: Text('YNAB not configured.'));
+                  }
+                  return ListView(
+                    controller: scrollController,
+                    children: [
+                      _MappingHeader(
+                          title: 'Accounts (${refData.activeAccounts.length})'),
+                      ...refData.activeAccounts.map((a) => ListTile(
+                            title: Text(a.name),
+                            onTap: () =>
+                                Navigator.pop(context, (a.id, a.name)),
+                          )),
+                      const _MappingHeader(title: 'Categories'),
+                      ...refData.categoriesByGroup.entries.expand((entry) => [
+                            Padding(
+                              padding:
+                                  const EdgeInsets.fromLTRB(16, 8, 16, 2),
+                              child: Text(entry.key,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .labelSmall
+                                      ?.copyWith(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSurfaceVariant,
+                                      )),
+                            ),
+                            ...entry.value.map((cat) => ListTile(
+                                  title: Text(cat.name),
+                                  onTap: () => Navigator.pop(
+                                      context, (cat.id, cat.name)),
+                                )),
+                          ]),
+                      const SizedBox(height: 16),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _MappingHeader extends StatelessWidget {
+  final String title;
+  const _MappingHeader({required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      child: Text(
+        title,
+        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+              color: Theme.of(context).colorScheme.primary,
+            ),
+      ),
+    );
+  }
 }
