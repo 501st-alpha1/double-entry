@@ -385,11 +385,32 @@ class _PostingRowState extends ConsumerState<_PostingRow> {
     );
   }
 
-  /// Shows the YNAB link button if the account exists in the DB but has no ynabId.
+  /// Shows the YNAB link button if the account has no ynabId,
+  /// including accounts that haven't been saved to the DB yet.
   Widget _buildLinkButton(BuildContext context, PostingFormRow row) {
-    if (row.account == null || row.account!.id.isEmpty) {
-      return const SizedBox.shrink();
+    if (row.account == null) return const SizedBox.shrink();
+
+    // Account not yet in DB (typed manually) — always show link button
+    if (row.account!.id.isEmpty) {
+      return Tooltip(
+        message: 'Link to YNAB (save transaction first)',
+        child: IconButton(
+          icon: Icon(Icons.link,
+              size: 18, color: Theme.of(context).colorScheme.error),
+          onPressed: () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                    'Save the transaction first, then link the account to YNAB.'),
+                duration: Duration(seconds: 3),
+              ),
+            );
+          },
+        ),
+      );
     }
+
+    // Account in DB — check if it has a ynabId
     return FutureBuilder<AccountRow?>(
       future: ref.read(accountDaoProvider).findById(row.account!.id),
       builder: (context, snap) {
