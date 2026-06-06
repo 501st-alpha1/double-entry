@@ -1,4 +1,4 @@
-import '../models/models.dart';
+import '../../models/models.dart';
 
 /// Formats [Transaction] objects into Ledger-CLI plain text format.
 ///
