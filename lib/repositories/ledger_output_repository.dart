@@ -1,4 +1,7 @@
+import 'dart:io';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/models.dart';
+import '../../services/settings_service.dart';
 import 'ledger_formatter.dart';
 
 // ─────────────────────────────────────────────
@@ -19,25 +22,23 @@ class LedgerOutputException implements Exception {
   LedgerOutputException(this.message, [this.cause]);
 
   @override
-  String toString() => 'LedgerOutputException: $message'
-      '${cause != null ? ' ($cause)' : ''}';
+  String toString() =>
+      'LedgerOutputException: $message${cause != null ? ' ($cause)' : ''}';
 }
 
 // ─────────────────────────────────────────────
-// LOCAL FILE IMPLEMENTATION (v1 fallback)
+// LOCAL FILE IMPLEMENTATION
 // ─────────────────────────────────────────────
 
-/// Writes formatted Ledger entries to a local file, appending each session
-/// as a new file (e.g. mobile_2024_01_15_001.ledger).
-///
-/// This is the v1 implementation. The Git-based implementation will replace
-/// or sit alongside this once git2dart is validated.
+/// Appends formatted Ledger entries to a single configured output file.
+/// The file is created if it doesn't exist; entries are appended with a
+/// blank line separator so the file stays valid Ledger syntax.
 class LocalFileLedgerOutputRepository implements LedgerOutputRepository {
-  final String outputDirectory;
+  final String outputPath;
   final LedgerFormatter formatter;
 
   LocalFileLedgerOutputRepository({
-    required this.outputDirectory,
+    required this.outputPath,
     this.formatter = const LedgerFormatter(),
   });
 
@@ -45,24 +46,40 @@ class LocalFileLedgerOutputRepository implements LedgerOutputRepository {
   Future<void> write(List<Transaction> transactions) async {
     if (transactions.isEmpty) return;
 
-    final filename = _generateFilename();
-    final path = '$outputDirectory/$filename';
-    final content = formatter.formatTransactions(transactions);
+    // Expand ~ to the home directory
+    final resolvedPath = outputPath.startsWith('~/')
+        ? '${Platform.environment['HOME']}/${outputPath.substring(2)}'
+        : outputPath;
 
-    // Platform-specific file I/O will be injected here.
-    // For now this is a stub — actual File writing requires dart:io
-    // which is available on Android and desktop but not web.
-    throw UnimplementedError(
-      'File I/O not yet wired. Would write ${transactions.length} '
-      'transactions to $path:\n\n$content',
-    );
-  }
+    final file = File(resolvedPath);
 
-  String _generateFilename() {
-    final now = DateTime.now();
-    final date =
-        '${now.year}_${now.month.toString().padLeft(2, '0')}_${now.day.toString().padLeft(2, '0')}';
-    return 'mobile_$date.ledger';
+    try {
+      // Create parent directories if they don't exist
+      await file.parent.create(recursive: true);
+
+      final content = formatter.formatTransactions(transactions);
+
+      // If the file already exists and is non-empty, ensure we start
+      // on a new line with a blank separator.
+      String prefix = '';
+      if (await file.exists()) {
+        final existing = await file.readAsString();
+        if (existing.isNotEmpty && !existing.endsWith('\n\n')) {
+          prefix = existing.endsWith('\n') ? '\n' : '\n\n';
+        }
+      }
+
+      await file.writeAsString(
+        '$prefix$content',
+        mode: FileMode.append,
+        flush: true,
+      );
+    } on FileSystemException catch (e) {
+      throw LedgerOutputException(
+        'Failed to write to $resolvedPath',
+        e,
+      );
+    }
   }
 }
 
@@ -94,3 +111,17 @@ class GitLedgerOutputRepository implements LedgerOutputRepository {
     );
   }
 }
+
+// ─────────────────────────────────────────────
+// PROVIDER
+// ─────────────────────────────────────────────
+
+/// Provides the configured [LedgerOutputRepository].
+/// Returns null if no output path is configured.
+final ledgerOutputRepositoryProvider =
+    Provider<LedgerOutputRepository?>((ref) {
+  final settings = ref.watch(settingsProvider).valueOrNull;
+  final path = settings?.ledgerOutputPath;
+  if (path == null) return null;
+  return LocalFileLedgerOutputRepository(outputPath: path);
+});

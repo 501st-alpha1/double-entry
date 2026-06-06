@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../database/dao_providers.dart';
 import '../../database/database.dart';
 import '../../repositories/ynab/ynab_sync_repository.dart';
+import '../../repositories/ledger/ledger_sync_repository.dart';
 import '../../routing/router.dart';
 
 class HomeScreen extends ConsumerWidget {
@@ -101,45 +102,70 @@ class _SyncStatusIndicator extends StatelessWidget {
 extension _HomeScreenSync on HomeScreen {
   Future<void> _sync(BuildContext context, WidgetRef ref) async {
     final ynabSync = ref.read(ynabSyncRepositoryProvider);
+    final ledgerSync = ref.read(ledgerSyncRepositoryProvider);
 
-    if (ynabSync == null) {
+    if (ynabSync == null && ledgerSync == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('YNAB not configured. Check Settings.')),
+        const SnackBar(content: Text('Nothing configured. Check Settings.')),
       );
       return;
     }
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Syncing to YNAB...')),
+      const SnackBar(content: Text('Syncing...')),
     );
 
+    int ynabSucceeded = 0, ynabFailed = 0;
+    int ledgerSucceeded = 0, ledgerFailed = 0;
+    final errors = <String>[];
+
     try {
-      final results = await ynabSync.syncPending();
-      if (!context.mounted) return;
-
-      final succeeded = results.where((r) => r.success).length;
-      final failed = results.where((r) => !r.success).length;
-
-      final message = failed == 0
-          ? 'Synced $succeeded transaction${succeeded == 1 ? '' : 's'} to YNAB'
-          : '$succeeded synced, $failed failed';
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor:
-              failed > 0 ? Theme.of(context).colorScheme.error : null,
-        ),
-      );
+      if (ynabSync != null) {
+        final results = await ynabSync.syncPending();
+        ynabSucceeded = results.where((r) => r.success).length;
+        ynabFailed = results.where((r) => !r.success).length;
+        errors.addAll(results
+            .where((r) => !r.success && r.error != null)
+            .map((r) => 'YNAB: ${r.error}'));
+      }
     } catch (e) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Sync failed: $e'),
-          backgroundColor: Theme.of(context).colorScheme.error,
-        ),
-      );
+      errors.add('YNAB: $e');
     }
+
+    try {
+      if (ledgerSync != null) {
+        final results = await ledgerSync.syncPending();
+        ledgerSucceeded = results.where((r) => r.success).length;
+        ledgerFailed = results.where((r) => !r.success).length;
+        errors.addAll(results
+            .where((r) => !r.success && r.error != null)
+            .map((r) => 'Ledger: ${r.error}'));
+      }
+    } catch (e) {
+      errors.add('Ledger: $e');
+    }
+
+    if (!context.mounted) return;
+
+    final totalFailed = ynabFailed + ledgerFailed;
+    final parts = <String>[];
+    if (ynabSync != null) {
+      parts.add('YNAB: $ynabSucceeded synced'
+          '${ynabFailed > 0 ? ', $ynabFailed failed' : ''}');
+    }
+    if (ledgerSync != null) {
+      parts.add('Ledger: $ledgerSucceeded synced'
+          '${ledgerFailed > 0 ? ', $ledgerFailed failed' : ''}');
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(parts.join(' · ')),
+        backgroundColor:
+            totalFailed > 0 ? Theme.of(context).colorScheme.error : null,
+        duration: Duration(seconds: errors.isEmpty ? 3 : 6),
+      ),
+    );
   }
 }
 
