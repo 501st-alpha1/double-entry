@@ -6,6 +6,15 @@ import '../../database/database.dart';
 import '../../repositories/ynab/ynab_sync_repository.dart';
 import '../../repositories/ledger/ledger_sync_repository.dart';
 import '../../routing/router.dart';
+import '../../widgets/ynab_mapping_sheet.dart';
+
+// Provider for unlinked accounts in pending transactions
+final _unlinkedAccountsProvider =
+    StreamProvider<List<AccountRow>>((ref) {
+  return ref
+      .watch(accountDaoProvider)
+      .watchUnlinkedAccountsInPendingTransactions();
+});
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -35,12 +44,26 @@ class HomeScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: pendingAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Error: $e')),
-        data: (transactions) => transactions.isEmpty
-            ? const Center(child: Text('No pending transactions.'))
-            : _TransactionList(transactions: transactions),
+      body: Column(
+        children: [
+          // Unlinked accounts banner
+          ref.watch(_unlinkedAccountsProvider).maybeWhen(
+                data: (accounts) => accounts.isEmpty
+                    ? const SizedBox.shrink()
+                    : _UnlinkedAccountsBanner(accounts: accounts),
+                orElse: () => const SizedBox.shrink(),
+              ),
+          // Transaction list
+          Expanded(
+            child: pendingAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Center(child: Text('Error: $e')),
+              data: (transactions) => transactions.isEmpty
+                  ? const Center(child: Text('No pending transactions.'))
+                  : _TransactionList(transactions: transactions),
+            ),
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => context.push(Routes.newTransaction),
@@ -101,6 +124,42 @@ class _SyncStatusIndicator extends StatelessWidget {
   }
 }
 
+class _UnlinkedAccountsBanner extends ConsumerWidget {
+  final List<AccountRow> accounts;
+  const _UnlinkedAccountsBanner({required this.accounts});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return MaterialBanner(
+      padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+      content: Text(
+        '${accounts.length} account${accounts.length == 1 ? '' : 's'} '
+        'need${accounts.length == 1 ? 's' : ''} a YNAB mapping before sync.',
+      ),
+      leading: Icon(Icons.link_off,
+          color: Theme.of(context).colorScheme.error),
+      actions: [
+        TextButton(
+          onPressed: () => _showMappingForAll(context, ref),
+          child: const Text('Link Now'),
+        ),
+        TextButton(
+          onPressed: () => ScaffoldMessenger.of(context).hideCurrentMaterialBanner(),
+          child: const Text('Dismiss'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _showMappingForAll(
+      BuildContext context, WidgetRef ref) async {
+    for (final account in accounts) {
+      if (!context.mounted) return;
+      await showYnabMappingSheet(context, ref, account);
+    }
+  }
+}
+
 extension _HomeScreenSync on HomeScreen {
   Future<void> _sync(BuildContext context, WidgetRef ref) async {
     final ynabSync = ref.read(ynabSyncRepositoryProvider);
@@ -113,25 +172,34 @@ extension _HomeScreenSync on HomeScreen {
       return;
     }
 
+    // Option D: check for unlinked accounts before syncing to YNAB
+    if (ynabSync != null) {
+      final unlinked = await ref
+          .read(accountDaoProvider)
+          .unlinkedAccountsInPendingTransactions();
+
+      if (unlinked.isNotEmpty && context.mounted) {
+        final proceed = await _showUnlinkedDialog(context, ref, unlinked);
+        if (!proceed || !context.mounted) return;
+      }
+    }
+
+    if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Syncing...')),
     );
 
     int ynabSucceeded = 0, ynabFailed = 0;
     int ledgerSucceeded = 0, ledgerFailed = 0;
-    final errors = <String>[];
 
     try {
       if (ynabSync != null) {
         final results = await ynabSync.syncPending();
         ynabSucceeded = results.where((r) => r.success).length;
         ynabFailed = results.where((r) => !r.success).length;
-        errors.addAll(results
-            .where((r) => !r.success && r.error != null)
-            .map((r) => 'YNAB: ${r.error}'));
       }
     } catch (e) {
-      errors.add('YNAB: $e');
+      ynabFailed++;
     }
 
     try {
@@ -139,12 +207,9 @@ extension _HomeScreenSync on HomeScreen {
         final results = await ledgerSync.syncPending();
         ledgerSucceeded = results.where((r) => r.success).length;
         ledgerFailed = results.where((r) => !r.success).length;
-        errors.addAll(results
-            .where((r) => !r.success && r.error != null)
-            .map((r) => 'Ledger: ${r.error}'));
       }
     } catch (e) {
-      errors.add('Ledger: $e');
+      ledgerFailed++;
     }
 
     if (!context.mounted) return;
@@ -165,9 +230,63 @@ extension _HomeScreenSync on HomeScreen {
         content: Text(parts.join(' · ')),
         backgroundColor:
             totalFailed > 0 ? Theme.of(context).colorScheme.error : null,
-        duration: Duration(seconds: errors.isEmpty ? 3 : 6),
+        duration: Duration(seconds: totalFailed > 0 ? 6 : 3),
       ),
     );
+  }
+
+  /// Shows a dialog listing unlinked accounts with options to link or skip.
+  /// Returns true if the user wants to proceed with sync anyway.
+  Future<bool> _showUnlinkedDialog(
+    BuildContext context,
+    WidgetRef ref,
+    List<AccountRow> unlinked,
+  ) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Unlinked Accounts'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'The following account${unlinked.length == 1 ? '' : 's'} '
+              '${unlinked.length == 1 ? 'has' : 'have'} no YNAB mapping. '
+              'YNAB sync may fail for affected transactions.',
+            ),
+            const SizedBox(height: 12),
+            ...unlinked.map((a) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.link_off, size: 16),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(a.ledgerName)),
+                      TextButton(
+                        onPressed: () async {
+                          await showYnabMappingSheet(context, ref, a);
+                        },
+                        child: const Text('Link'),
+                      ),
+                    ],
+                  ),
+                )),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Sync Anyway'),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
   }
 }
 

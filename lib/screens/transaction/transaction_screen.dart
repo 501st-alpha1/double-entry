@@ -5,6 +5,7 @@ import '../../models/models.dart';
 import '../../database/dao_providers.dart';
 import '../../database/database.dart' show AccountRow, PayeeRow;
 import '../../widgets/keyboard_autocomplete.dart';
+import '../../widgets/ynab_mapping_sheet.dart';
 import 'transaction_form_state.dart';
 import 'transaction_form_notifier.dart';
 
@@ -368,6 +369,9 @@ class _PostingRowState extends ConsumerState<_PostingRow> {
           ),
         ),
 
+        // YNAB link button (shown when account has no ynabId)
+        _buildLinkButton(context, row),
+
         // Remove button (only shown when more than one row)
         if (rows.length > 1)
           IconButton(
@@ -378,6 +382,32 @@ class _PostingRowState extends ConsumerState<_PostingRow> {
         else
           const SizedBox(width: 40), // maintain alignment
       ],
+    );
+  }
+
+  /// Shows the YNAB link button if the account exists in the DB but has no ynabId.
+  Widget _buildLinkButton(BuildContext context, PostingFormRow row) {
+    if (row.account == null || row.account!.id.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return FutureBuilder<AccountRow?>(
+      future: ref.read(accountDaoProvider).findById(row.account!.id),
+      builder: (context, snap) {
+        final dbAccount = snap.data;
+        if (dbAccount == null || dbAccount.ynabId != null) {
+          return const SizedBox.shrink();
+        }
+        return Tooltip(
+          message: 'Link to YNAB',
+          child: IconButton(
+            icon: Icon(Icons.link,
+                size: 18, color: Theme.of(context).colorScheme.error),
+            onPressed: () async {
+              await showYnabMappingSheet(context, ref, dbAccount);
+            },
+          ),
+        );
+      },
     );
   }
 }
