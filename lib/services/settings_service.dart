@@ -71,14 +71,14 @@ class SettingsService {
   Future<AppSettings> load() async {
     final token = await _secure.read(key: _keyYnabToken);
     return AppSettings(
-      ynabToken: token,
+      ynabToken: token?.trim(),
       ynabBudgetId: _prefs.getString(_keyYnabBudgetId),
       ledgerOutputPath: _prefs.getString(_keyLedgerOutputPath),
     );
   }
 
   Future<void> setYnabToken(String token) =>
-      _secure.write(key: _keyYnabToken, value: token);
+      _secure.write(key: _keyYnabToken, value: token.trim());
 
   Future<void> clearYnabToken() =>
       _secure.delete(key: _keyYnabToken);
