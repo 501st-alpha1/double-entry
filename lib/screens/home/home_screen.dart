@@ -88,11 +88,13 @@ class _SyncStatusIndicator extends StatelessWidget {
   Widget build(BuildContext context) {
     final ynabDone = tx.ynabSyncStatus == 'synced';
     final ledgerDone = tx.ledgerSyncStatus == 'synced';
+    final anyFailed =
+        tx.ynabSyncStatus == 'failed' || tx.ledgerSyncStatus == 'failed';
 
     if (ynabDone && ledgerDone) {
       return const Icon(Icons.check_circle, color: Colors.green);
     }
-    if (tx.ynabSyncStatus == 'failed' || tx.ledgerSyncStatus == 'failed') {
+    if (anyFailed) {
       return const Icon(Icons.error, color: Colors.red);
     }
     return const Icon(Icons.schedule, color: Colors.orange);

@@ -250,14 +250,18 @@ class TransactionDao {
       (_db.select(_db.transactions)
             ..where((t) =>
                 t.ynabSyncStatus.equals('pending') |
-                t.ledgerSyncStatus.equals('pending')))
+                t.ynabSyncStatus.equals('failed') |
+                t.ledgerSyncStatus.equals('pending') |
+                t.ledgerSyncStatus.equals('failed')))
           .get();
 
   Stream<List<TransactionRow>> watchPendingTransactions() =>
       (_db.select(_db.transactions)
             ..where((t) =>
                 t.ynabSyncStatus.equals('pending') |
-                t.ledgerSyncStatus.equals('pending'))
+                t.ynabSyncStatus.equals('failed') |
+                t.ledgerSyncStatus.equals('pending') |
+                t.ledgerSyncStatus.equals('failed'))
             ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
           .watch();
 

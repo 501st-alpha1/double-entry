@@ -34,8 +34,10 @@ class LedgerSyncRepository {
 
   Future<List<LedgerSyncResult>> syncPending() async {
     final pending = await _transactionDao.pendingTransactions();
-    final toSync =
-        pending.where((t) => t.ledgerSyncStatus == 'pending').toList();
+    final toSync = pending
+        .where((t) =>
+            t.ledgerSyncStatus == 'pending' || t.ledgerSyncStatus == 'failed')
+        .toList();
 
     if (toSync.isEmpty) return [];
 

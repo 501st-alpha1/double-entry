@@ -42,7 +42,8 @@ class YnabSyncRepository {
   Future<List<YnabSyncResult>> syncPending() async {
     final pending = await _transactionDao.pendingTransactions();
     final toSync = pending
-        .where((t) => t.ynabSyncStatus == 'pending')
+        .where((t) =>
+            t.ynabSyncStatus == 'pending' || t.ynabSyncStatus == 'failed')
         .toList();
 
     if (toSync.isEmpty) return [];
