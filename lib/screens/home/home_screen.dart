@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../database/dao_providers.dart';
 import '../../database/database.dart';
+import '../../repositories/ynab/ynab_sync_repository.dart';
 import '../../routing/router.dart';
 
 class HomeScreen extends ConsumerWidget {
@@ -22,9 +23,7 @@ class HomeScreen extends ConsumerWidget {
                 : IconButton(
                     icon: const Icon(Icons.sync),
                     tooltip: 'Sync ${transactions.length} pending',
-                    onPressed: () {
-                      // TODO: trigger sync
-                    },
+                    onPressed: () => _sync(context, ref),
                   ),
             orElse: () => const SizedBox.shrink(),
           ),
@@ -96,6 +95,51 @@ class _SyncStatusIndicator extends StatelessWidget {
       return const Icon(Icons.error, color: Colors.red);
     }
     return const Icon(Icons.schedule, color: Colors.orange);
+  }
+}
+
+extension _HomeScreenSync on HomeScreen {
+  Future<void> _sync(BuildContext context, WidgetRef ref) async {
+    final ynabSync = ref.read(ynabSyncRepositoryProvider);
+
+    if (ynabSync == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('YNAB not configured. Check Settings.')),
+      );
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Syncing to YNAB...')),
+    );
+
+    try {
+      final results = await ynabSync.syncPending();
+      if (!context.mounted) return;
+
+      final succeeded = results.where((r) => r.success).length;
+      final failed = results.where((r) => !r.success).length;
+
+      final message = failed == 0
+          ? 'Synced $succeeded transaction${succeeded == 1 ? '' : 's'} to YNAB'
+          : '$succeeded synced, $failed failed';
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor:
+              failed > 0 ? Theme.of(context).colorScheme.error : null,
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Sync failed: $e'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
+    }
   }
 }
 

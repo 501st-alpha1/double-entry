@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../repositories/ynab/ynab_client.dart';
 import '../../services/settings_service.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -182,57 +183,94 @@ class _YnabBudgetTile extends ConsumerWidget {
       subtitle: Text(budgetId != null ? budgetId! : 'Not selected'),
       trailing: const Icon(Icons.chevron_right),
       enabled: isEnabled,
-      onTap: isEnabled ? () => _showBudgetDialog(context, ref) : null,
+      onTap: isEnabled ? () => _showBudgetPicker(context, ref) : null,
     );
   }
 
-  Future<void> _showBudgetDialog(BuildContext context, WidgetRef ref) async {
+  Future<void> _showBudgetPicker(BuildContext context, WidgetRef ref) async {
     final notifier = ref.read(settingsProvider.notifier);
-    final controller = TextEditingController(text: budgetId);
+    final client = ref.read(ynabClientProvider);
+    if (client == null) return;
 
-    // For now, manual entry of the budget ID.
-    // This will be replaced with a fetched list once the YNAB client is built.
-    await showDialog(
+    // Show loading dialog while fetching
+    showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('YNAB Budget ID'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+      barrierDismissible: false,
+      builder: (_) => const AlertDialog(
+        content: Row(
           children: [
-            const Text(
-              'Find your budget ID in the YNAB web app URL: '
-              'app.ynab.com/[budget-id]/budget',
+            CircularProgressIndicator(),
+            SizedBox(width: 16),
+            Text('Loading budgets...'),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      final budgets = await client.getBudgets();
+      if (!context.mounted) return;
+      Navigator.pop(context); // dismiss loading
+
+      if (budgets.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No budgets found for this token.')),
+        );
+        return;
+      }
+
+      // If only one budget, select it automatically
+      if (budgets.length == 1) {
+        await notifier.setYnabBudgetId(budgets.first.id);
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Selected: ${budgets.first.name}')),
+          );
+        }
+        return;
+      }
+
+      // Multiple budgets — show picker
+      if (!context.mounted) return;
+      await showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Select Budget'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: budgets.length,
+              itemBuilder: (context, index) {
+                final budget = budgets[index];
+                return ListTile(
+                  title: Text(budget.name),
+                  subtitle: Text(budget.id),
+                  selected: budget.id == budgetId,
+                  onTap: () async {
+                    await notifier.setYnabBudgetId(budget.id);
+                    if (context.mounted) Navigator.pop(context);
+                  },
+                );
+              },
             ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: controller,
-              decoration: const InputDecoration(
-                labelText: 'Budget ID',
-                hintText: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
-              ),
-              autocorrect: false,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () async {
-              final value = controller.text.trim();
-              if (value.isNotEmpty) {
-                await notifier.setYnabBudgetId(value);
-              }
-              if (context.mounted) Navigator.pop(context);
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
+      );
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.pop(context); // dismiss loading
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to fetch budgets: $e')),
+        );
+      }
+    }
   }
 }
 
