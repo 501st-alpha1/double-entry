@@ -136,19 +136,57 @@ class YnabSyncRepository {
     }
 
     // Multiple real postings — build a split transaction.
-    // The source posting's amount is the total; each non-source
-    // posting becomes a subtransaction.
-    final subtransactions = <YnabSubTransaction>[];
-    for (final posting in nonSourcePostings) {
+    // For a single non-source posting, use categoryId directly (no subtransactions).
+    // For multiple, use subtransactions where amounts are from the source's perspective.
+    if (nonSourcePostings.length == 1) {
+      final posting = nonSourcePostings.first;
       final account = await _accountDao.findById(posting.accountId);
+      final isTransfer = account?.ynabId != null;
+
+      return YnabSaveTransaction(
+        accountId: ynabAccountId,
+        date: date,
+        amount: sourcePosting.amountMilliunits,
+        payeeName: isTransfer ? null : tx.payeeName,
+        payeeId: isTransfer ? 'transfer:${account!.ynabId}' : null,
+        categoryId: !isTransfer ? account?.ynabId : null,
+        memo: memo,
+      );
+    }
+
+    // Genuine split — multiple non-source postings become subtransactions.
+    // Each subtransaction amount is expressed from the source account's perspective,
+    // so they must sum to the source posting amount.
+    // We derive each subtransaction's share proportionally from the source amount.
+    final totalNonSource = nonSourcePostings.fold(
+        0, (sum, p) => sum + p.amountMilliunits.abs());
+
+    final subtransactions = <YnabSubTransaction>[];
+    int allocated = 0;
+    for (int i = 0; i < nonSourcePostings.length; i++) {
+      final posting = nonSourcePostings[i];
+      final account = await _accountDao.findById(posting.accountId);
+      final isTransfer = account?.ynabId != null;
+
+      // Proportional share of the source amount, last posting gets remainder
+      final int amount;
+      if (i == nonSourcePostings.length - 1) {
+        amount = sourcePosting.amountMilliunits - allocated;
+      } else {
+        amount = totalNonSource == 0
+            ? 0
+            : (sourcePosting.amountMilliunits *
+                    posting.amountMilliunits.abs() /
+                    totalNonSource)
+                .round();
+        allocated += amount;
+      }
+
       subtransactions.add(YnabSubTransaction(
-        amount: posting.amountMilliunits,
-        // If the target is an account with a YNAB ID, it's a transfer
-        payeeId: account?.ynabId != null
-            ? 'transfer:${account!.ynabId}'
-            : null,
-        payeeName:
-            account?.ynabId == null ? account?.ynabName ?? account?.ledgerName : null,
+        amount: amount,
+        payeeId: isTransfer ? 'transfer:${account!.ynabId}' : null,
+        payeeName: !isTransfer ? account?.ynabName ?? account?.ledgerName : null,
+        categoryId: !isTransfer ? account?.ynabId : null,
         memo: posting.memo,
       ));
     }
