@@ -516,8 +516,6 @@ class _RunningTotal extends ConsumerWidget {
     final state = ref.watch(transactionFormProvider);
     final theme = Theme.of(context);
     final isZero = state.totalMilliunits == 0;
-    final hasAmounts = state.postingRows.any(
-        (r) => r.amountRaw.isNotEmpty && r.amountMilliunits != null);
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.end,
@@ -532,15 +530,6 @@ class _RunningTotal extends ConsumerWidget {
                 : theme.colorScheme.error,
           ),
         ),
-        if (!isZero && hasAmounts) ...[
-          const SizedBox(width: 6),
-          Text(
-            'must be \$0.00',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.error,
-            ),
-          ),
-        ],
       ],
     );
   }
