@@ -79,11 +79,23 @@ class TransactionDetailScreen extends ConsumerWidget {
         actions: [
           detailAsync.maybeWhen(
             data: (detail) => detail != null
-                ? IconButton(
-                    icon: const Icon(Icons.edit_outlined),
-                    tooltip: 'Edit',
-                    onPressed: () =>
-                        context.push(Routes.editTransactionPath(transactionId)),
+                ? Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.edit_outlined),
+                        tooltip: 'Edit',
+                        onPressed: () => context
+                            .push(Routes.editTransactionPath(transactionId)),
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.delete_outline,
+                            color: Theme.of(context).colorScheme.error),
+                        tooltip: 'Delete',
+                        onPressed: () =>
+                            _confirmAndDelete(context, ref, detail.transaction),
+                      ),
+                    ],
                   )
                 : const SizedBox.shrink(),
             orElse: () => const SizedBox.shrink(),
@@ -98,6 +110,40 @@ class TransactionDetailScreen extends ConsumerWidget {
             : _DetailView(detail: detail),
       ),
     );
+  }
+
+  Future<void> _confirmAndDelete(
+    BuildContext context,
+    WidgetRef ref,
+    TransactionRow tx,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete transaction?'),
+        content: Text('Delete transaction for "${tx.payeeName}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && context.mounted) {
+      await ref
+          .read(transactionDaoProvider)
+          .deletePostingsForTransaction(tx.id);
+      await ref.read(transactionDaoProvider).deleteTransaction(tx.id);
+      context.pop();
+    }
   }
 }
 

@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,6 +8,9 @@ import '../../repositories/ynab/ynab_sync_repository.dart';
 import '../../repositories/ledger/ledger_sync_repository.dart';
 import '../../routing/router.dart';
 import '../../widgets/ynab_mapping_sheet.dart';
+
+bool get _isDesktop =>
+    Platform.isLinux || Platform.isMacOS || Platform.isWindows;
 
 // Provider for unlinked accounts in pending transactions
 final _unlinkedAccountsProvider =
@@ -80,25 +84,91 @@ final _pendingTransactionsProvider =
   return ref.watch(transactionDaoProvider).watchPendingTransactions();
 });
 
-class _TransactionList extends StatelessWidget {
+class _TransactionList extends ConsumerWidget {
   final List<TransactionRow> transactions;
 
   const _TransactionList({required this.transactions});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return ListView.builder(
       itemCount: transactions.length,
       itemBuilder: (context, index) {
         final tx = transactions[index];
-        return ListTile(
-          title: Text(tx.payeeName),
-          subtitle: Text(tx.date.toLocal().toString().substring(0, 10)),
-          trailing: _SyncStatusIndicator(tx: tx),
-          onTap: () => context.push(Routes.transactionDetailPath(tx.id)),
-        );
+        return _TransactionTile(tx: tx);
       },
     );
+  }
+}
+
+class _TransactionTile extends ConsumerWidget {
+  final TransactionRow tx;
+  const _TransactionTile({required this.tx});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Dismissible(
+      key: ValueKey(tx.id),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        color: Theme.of(context).colorScheme.error,
+        child: const Icon(Icons.delete_outline, color: Colors.white),
+      ),
+      confirmDismiss: (_) => _confirmDelete(context),
+      onDismissed: (_) => _delete(ref),
+      child: ListTile(
+        title: Text(tx.payeeName),
+        subtitle: Text(tx.date.toLocal().toString().substring(0, 10)),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _SyncStatusIndicator(tx: tx),
+            if (_isDesktop)
+              IconButton(
+                icon: Icon(Icons.delete_outline,
+                    size: 20,
+                    color: Theme.of(context).colorScheme.error),
+                tooltip: 'Delete',
+                onPressed: () async {
+                  final confirmed = await _confirmDelete(context);
+                  if (confirmed == true) await _delete(ref);
+                },
+              ),
+          ],
+        ),
+        onTap: () => context.push(Routes.transactionDetailPath(tx.id)),
+      ),
+    );
+  }
+
+  Future<bool?> _confirmDelete(BuildContext context) {
+    return showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete transaction?'),
+        content: Text('Delete transaction for "${tx.payeeName}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _delete(WidgetRef ref) async {
+    await ref.read(transactionDaoProvider).deletePostingsForTransaction(tx.id);
+    await ref.read(transactionDaoProvider).deleteTransaction(tx.id);
   }
 }
 
