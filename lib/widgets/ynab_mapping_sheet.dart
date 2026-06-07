@@ -129,7 +129,10 @@ class _MappingList extends StatelessWidget {
         _SectionHeader(title: 'Accounts (${refData.activeAccounts.length})'),
         ...refData.activeAccounts.map((a) => ListTile(
               title: Text(a.name),
-              onTap: () => _save(context, ynabId: a.id, ynabName: a.name),
+              onTap: () => _save(context,
+                  ynabId: a.id,
+                  ynabName: a.name,
+                  ynabTransferPayeeId: a.transferPayeeId),
             )),
 
         // ── Categories section ─────────────────
@@ -161,6 +164,7 @@ class _MappingList extends StatelessWidget {
     BuildContext context, {
     required String ynabId,
     required String ynabName,
+    String? ynabTransferPayeeId,
   }) async {
     await ref.read(accountDaoProvider).upsert(
           AccountsCompanion(
@@ -168,6 +172,7 @@ class _MappingList extends StatelessWidget {
             ledgerName: Value(account.ledgerName),
             ynabId: Value(ynabId),
             ynabName: Value(ynabName),
+            ynabTransferPayeeId: Value(ynabTransferPayeeId),
           ),
         );
     if (context.mounted) Navigator.pop(context, true);

@@ -141,14 +141,14 @@ class YnabSyncRepository {
     if (nonSourcePostings.length == 1) {
       final posting = nonSourcePostings.first;
       final account = await _accountDao.findById(posting.accountId);
-      final isTransfer = account?.ynabId != null;
+      final isTransfer = account?.ynabTransferPayeeId != null;
 
       return YnabSaveTransaction(
         accountId: ynabAccountId,
         date: date,
         amount: sourcePosting.amountMilliunits,
         payeeName: isTransfer ? null : tx.payeeName,
-        payeeId: isTransfer ? 'transfer:${account!.ynabId}' : null,
+        payeeId: isTransfer ? account!.ynabTransferPayeeId : null,
         categoryId: !isTransfer ? account?.ynabId : null,
         memo: memo,
       );
@@ -166,7 +166,7 @@ class YnabSyncRepository {
     for (int i = 0; i < nonSourcePostings.length; i++) {
       final posting = nonSourcePostings[i];
       final account = await _accountDao.findById(posting.accountId);
-      final isTransfer = account?.ynabId != null;
+      final isTransfer = account?.ynabTransferPayeeId != null;
 
       // Proportional share of the source amount, last posting gets remainder
       final int amount;
@@ -184,7 +184,7 @@ class YnabSyncRepository {
 
       subtransactions.add(YnabSubTransaction(
         amount: amount,
-        payeeId: isTransfer ? 'transfer:${account!.ynabId}' : null,
+        payeeId: isTransfer ? account!.ynabTransferPayeeId : null,
         payeeName: !isTransfer ? account?.ynabName ?? account?.ledgerName : null,
         categoryId: !isTransfer ? account?.ynabId : null,
         memo: posting.memo,

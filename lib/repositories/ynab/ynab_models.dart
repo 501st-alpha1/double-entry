@@ -21,12 +21,16 @@ class YnabAccount {
   final bool closed;
   final bool deleted;
 
+  /// The special payee ID used to create transfers to this account.
+  final String? transferPayeeId;
+
   const YnabAccount({
     required this.id,
     required this.name,
     required this.onBudget,
     required this.closed,
     required this.deleted,
+    this.transferPayeeId,
   });
 
   factory YnabAccount.fromJson(Map<String, dynamic> json) => YnabAccount(
@@ -35,6 +39,7 @@ class YnabAccount {
         onBudget: json['on_budget'] as bool,
         closed: json['closed'] as bool,
         deleted: json['deleted'] as bool,
+        transferPayeeId: json['transfer_payee_id'] as String?,
       );
 }
 

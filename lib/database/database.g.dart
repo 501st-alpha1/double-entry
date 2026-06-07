@@ -31,8 +31,15 @@ class $AccountsTable extends Accounts
   late final GeneratedColumn<String> ynabName = GeneratedColumn<String>(
       'ynab_name', aliasedName, true,
       type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _ynabTransferPayeeIdMeta =
+      const VerificationMeta('ynabTransferPayeeId');
   @override
-  List<GeneratedColumn> get $columns => [id, ledgerName, ynabId, ynabName];
+  late final GeneratedColumn<String> ynabTransferPayeeId =
+      GeneratedColumn<String>('ynab_transfer_payee_id', aliasedName, true,
+          type: DriftSqlType.string, requiredDuringInsert: false);
+  @override
+  List<GeneratedColumn> get $columns =>
+      [id, ledgerName, ynabId, ynabName, ynabTransferPayeeId];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -64,6 +71,12 @@ class $AccountsTable extends Accounts
       context.handle(_ynabNameMeta,
           ynabName.isAcceptableOrUnknown(data['ynab_name']!, _ynabNameMeta));
     }
+    if (data.containsKey('ynab_transfer_payee_id')) {
+      context.handle(
+          _ynabTransferPayeeIdMeta,
+          ynabTransferPayeeId.isAcceptableOrUnknown(
+              data['ynab_transfer_payee_id']!, _ynabTransferPayeeIdMeta));
+    }
     return context;
   }
 
@@ -81,6 +94,9 @@ class $AccountsTable extends Accounts
           .read(DriftSqlType.string, data['${effectivePrefix}ynab_id']),
       ynabName: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}ynab_name']),
+      ynabTransferPayeeId: attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}ynab_transfer_payee_id']),
     );
   }
 
@@ -95,8 +111,16 @@ class AccountRow extends DataClass implements Insertable<AccountRow> {
   final String ledgerName;
   final String? ynabId;
   final String? ynabName;
+
+  /// The YNAB transfer_payee_id for this account, used when creating
+  /// transfer transactions via the API.
+  final String? ynabTransferPayeeId;
   const AccountRow(
-      {required this.id, required this.ledgerName, this.ynabId, this.ynabName});
+      {required this.id,
+      required this.ledgerName,
+      this.ynabId,
+      this.ynabName,
+      this.ynabTransferPayeeId});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -107,6 +131,9 @@ class AccountRow extends DataClass implements Insertable<AccountRow> {
     }
     if (!nullToAbsent || ynabName != null) {
       map['ynab_name'] = Variable<String>(ynabName);
+    }
+    if (!nullToAbsent || ynabTransferPayeeId != null) {
+      map['ynab_transfer_payee_id'] = Variable<String>(ynabTransferPayeeId);
     }
     return map;
   }
@@ -120,6 +147,9 @@ class AccountRow extends DataClass implements Insertable<AccountRow> {
       ynabName: ynabName == null && nullToAbsent
           ? const Value.absent()
           : Value(ynabName),
+      ynabTransferPayeeId: ynabTransferPayeeId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(ynabTransferPayeeId),
     );
   }
 
@@ -131,6 +161,8 @@ class AccountRow extends DataClass implements Insertable<AccountRow> {
       ledgerName: serializer.fromJson<String>(json['ledgerName']),
       ynabId: serializer.fromJson<String?>(json['ynabId']),
       ynabName: serializer.fromJson<String?>(json['ynabName']),
+      ynabTransferPayeeId:
+          serializer.fromJson<String?>(json['ynabTransferPayeeId']),
     );
   }
   @override
@@ -141,6 +173,7 @@ class AccountRow extends DataClass implements Insertable<AccountRow> {
       'ledgerName': serializer.toJson<String>(ledgerName),
       'ynabId': serializer.toJson<String?>(ynabId),
       'ynabName': serializer.toJson<String?>(ynabName),
+      'ynabTransferPayeeId': serializer.toJson<String?>(ynabTransferPayeeId),
     };
   }
 
@@ -148,12 +181,16 @@ class AccountRow extends DataClass implements Insertable<AccountRow> {
           {String? id,
           String? ledgerName,
           Value<String?> ynabId = const Value.absent(),
-          Value<String?> ynabName = const Value.absent()}) =>
+          Value<String?> ynabName = const Value.absent(),
+          Value<String?> ynabTransferPayeeId = const Value.absent()}) =>
       AccountRow(
         id: id ?? this.id,
         ledgerName: ledgerName ?? this.ledgerName,
         ynabId: ynabId.present ? ynabId.value : this.ynabId,
         ynabName: ynabName.present ? ynabName.value : this.ynabName,
+        ynabTransferPayeeId: ynabTransferPayeeId.present
+            ? ynabTransferPayeeId.value
+            : this.ynabTransferPayeeId,
       );
   AccountRow copyWithCompanion(AccountsCompanion data) {
     return AccountRow(
@@ -162,6 +199,9 @@ class AccountRow extends DataClass implements Insertable<AccountRow> {
           data.ledgerName.present ? data.ledgerName.value : this.ledgerName,
       ynabId: data.ynabId.present ? data.ynabId.value : this.ynabId,
       ynabName: data.ynabName.present ? data.ynabName.value : this.ynabName,
+      ynabTransferPayeeId: data.ynabTransferPayeeId.present
+          ? data.ynabTransferPayeeId.value
+          : this.ynabTransferPayeeId,
     );
   }
 
@@ -171,13 +211,15 @@ class AccountRow extends DataClass implements Insertable<AccountRow> {
           ..write('id: $id, ')
           ..write('ledgerName: $ledgerName, ')
           ..write('ynabId: $ynabId, ')
-          ..write('ynabName: $ynabName')
+          ..write('ynabName: $ynabName, ')
+          ..write('ynabTransferPayeeId: $ynabTransferPayeeId')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, ledgerName, ynabId, ynabName);
+  int get hashCode =>
+      Object.hash(id, ledgerName, ynabId, ynabName, ynabTransferPayeeId);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -185,7 +227,8 @@ class AccountRow extends DataClass implements Insertable<AccountRow> {
           other.id == this.id &&
           other.ledgerName == this.ledgerName &&
           other.ynabId == this.ynabId &&
-          other.ynabName == this.ynabName);
+          other.ynabName == this.ynabName &&
+          other.ynabTransferPayeeId == this.ynabTransferPayeeId);
 }
 
 class AccountsCompanion extends UpdateCompanion<AccountRow> {
@@ -193,12 +236,14 @@ class AccountsCompanion extends UpdateCompanion<AccountRow> {
   final Value<String> ledgerName;
   final Value<String?> ynabId;
   final Value<String?> ynabName;
+  final Value<String?> ynabTransferPayeeId;
   final Value<int> rowid;
   const AccountsCompanion({
     this.id = const Value.absent(),
     this.ledgerName = const Value.absent(),
     this.ynabId = const Value.absent(),
     this.ynabName = const Value.absent(),
+    this.ynabTransferPayeeId = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   AccountsCompanion.insert({
@@ -206,6 +251,7 @@ class AccountsCompanion extends UpdateCompanion<AccountRow> {
     required String ledgerName,
     this.ynabId = const Value.absent(),
     this.ynabName = const Value.absent(),
+    this.ynabTransferPayeeId = const Value.absent(),
     this.rowid = const Value.absent(),
   })  : id = Value(id),
         ledgerName = Value(ledgerName);
@@ -214,6 +260,7 @@ class AccountsCompanion extends UpdateCompanion<AccountRow> {
     Expression<String>? ledgerName,
     Expression<String>? ynabId,
     Expression<String>? ynabName,
+    Expression<String>? ynabTransferPayeeId,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -221,6 +268,8 @@ class AccountsCompanion extends UpdateCompanion<AccountRow> {
       if (ledgerName != null) 'ledger_name': ledgerName,
       if (ynabId != null) 'ynab_id': ynabId,
       if (ynabName != null) 'ynab_name': ynabName,
+      if (ynabTransferPayeeId != null)
+        'ynab_transfer_payee_id': ynabTransferPayeeId,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -230,12 +279,14 @@ class AccountsCompanion extends UpdateCompanion<AccountRow> {
       Value<String>? ledgerName,
       Value<String?>? ynabId,
       Value<String?>? ynabName,
+      Value<String?>? ynabTransferPayeeId,
       Value<int>? rowid}) {
     return AccountsCompanion(
       id: id ?? this.id,
       ledgerName: ledgerName ?? this.ledgerName,
       ynabId: ynabId ?? this.ynabId,
       ynabName: ynabName ?? this.ynabName,
+      ynabTransferPayeeId: ynabTransferPayeeId ?? this.ynabTransferPayeeId,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -255,6 +306,10 @@ class AccountsCompanion extends UpdateCompanion<AccountRow> {
     if (ynabName.present) {
       map['ynab_name'] = Variable<String>(ynabName.value);
     }
+    if (ynabTransferPayeeId.present) {
+      map['ynab_transfer_payee_id'] =
+          Variable<String>(ynabTransferPayeeId.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -268,6 +323,7 @@ class AccountsCompanion extends UpdateCompanion<AccountRow> {
           ..write('ledgerName: $ledgerName, ')
           ..write('ynabId: $ynabId, ')
           ..write('ynabName: $ynabName, ')
+          ..write('ynabTransferPayeeId: $ynabTransferPayeeId, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -2207,6 +2263,7 @@ typedef $$AccountsTableCreateCompanionBuilder = AccountsCompanion Function({
   required String ledgerName,
   Value<String?> ynabId,
   Value<String?> ynabName,
+  Value<String?> ynabTransferPayeeId,
   Value<int> rowid,
 });
 typedef $$AccountsTableUpdateCompanionBuilder = AccountsCompanion Function({
@@ -2214,6 +2271,7 @@ typedef $$AccountsTableUpdateCompanionBuilder = AccountsCompanion Function({
   Value<String> ledgerName,
   Value<String?> ynabId,
   Value<String?> ynabName,
+  Value<String?> ynabTransferPayeeId,
   Value<int> rowid,
 });
 
@@ -2274,6 +2332,10 @@ class $$AccountsTableFilterComposer
 
   ColumnFilters<String> get ynabName => $composableBuilder(
       column: $table.ynabName, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get ynabTransferPayeeId => $composableBuilder(
+      column: $table.ynabTransferPayeeId,
+      builder: (column) => ColumnFilters(column));
 
   Expression<bool> postingTemplatesRefs(
       Expression<bool> Function($$PostingTemplatesTableFilterComposer f) f) {
@@ -2338,6 +2400,10 @@ class $$AccountsTableOrderingComposer
 
   ColumnOrderings<String> get ynabName => $composableBuilder(
       column: $table.ynabName, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get ynabTransferPayeeId => $composableBuilder(
+      column: $table.ynabTransferPayeeId,
+      builder: (column) => ColumnOrderings(column));
 }
 
 class $$AccountsTableAnnotationComposer
@@ -2360,6 +2426,9 @@ class $$AccountsTableAnnotationComposer
 
   GeneratedColumn<String> get ynabName =>
       $composableBuilder(column: $table.ynabName, builder: (column) => column);
+
+  GeneratedColumn<String> get ynabTransferPayeeId => $composableBuilder(
+      column: $table.ynabTransferPayeeId, builder: (column) => column);
 
   Expression<T> postingTemplatesRefs<T extends Object>(
       Expression<T> Function($$PostingTemplatesTableAnnotationComposer a) f) {
@@ -2431,6 +2500,7 @@ class $$AccountsTableTableManager extends RootTableManager<
             Value<String> ledgerName = const Value.absent(),
             Value<String?> ynabId = const Value.absent(),
             Value<String?> ynabName = const Value.absent(),
+            Value<String?> ynabTransferPayeeId = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               AccountsCompanion(
@@ -2438,6 +2508,7 @@ class $$AccountsTableTableManager extends RootTableManager<
             ledgerName: ledgerName,
             ynabId: ynabId,
             ynabName: ynabName,
+            ynabTransferPayeeId: ynabTransferPayeeId,
             rowid: rowid,
           ),
           createCompanionCallback: ({
@@ -2445,6 +2516,7 @@ class $$AccountsTableTableManager extends RootTableManager<
             required String ledgerName,
             Value<String?> ynabId = const Value.absent(),
             Value<String?> ynabName = const Value.absent(),
+            Value<String?> ynabTransferPayeeId = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               AccountsCompanion.insert(
@@ -2452,6 +2524,7 @@ class $$AccountsTableTableManager extends RootTableManager<
             ledgerName: ledgerName,
             ynabId: ynabId,
             ynabName: ynabName,
+            ynabTransferPayeeId: ynabTransferPayeeId,
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0

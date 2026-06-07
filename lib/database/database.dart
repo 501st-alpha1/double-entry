@@ -14,6 +14,10 @@ class Accounts extends Table {
   TextColumn get ynabId => text().nullable()();
   TextColumn get ynabName => text().nullable()();
 
+  /// The YNAB transfer_payee_id for this account, used when creating
+  /// transfer transactions via the API.
+  TextColumn get ynabTransferPayeeId => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -136,7 +140,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -144,6 +148,9 @@ class AppDatabase extends _$AppDatabase {
       if (from < 2) {
         // Add isSource column to postings table
         await m.addColumn(postings, postings.isSource);
+      }
+      if (from < 3) {
+        await m.addColumn(accounts, accounts.ynabTransferPayeeId);
       }
     },
   );
