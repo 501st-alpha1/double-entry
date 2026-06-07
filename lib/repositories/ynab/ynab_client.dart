@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../services/settings_service.dart';
 import 'ynab_models.dart';
@@ -20,6 +21,15 @@ class YnabClient {
           connectTimeout: const Duration(seconds: 10),
           receiveTimeout: const Duration(seconds: 10),
         )) {
+    debugPrint('YnabClient: token length=${token.length}, '
+        'starts="${token.substring(0, token.length.clamp(0, 8))}..."');
+    if (kDebugMode) {
+      _dio.interceptors.add(LogInterceptor(
+        requestHeader: true,
+        responseBody: true,
+        logPrint: (o) => debugPrint(o.toString()),
+      ));
+    }
     _dio.interceptors.add(InterceptorsWrapper(
       onError: (error, handler) {
         final response = error.response;
@@ -79,7 +89,7 @@ class YnabClient {
       for (final cat in cats) {
         final category = YnabCategory.fromJson(
             cat as Map<String, dynamic>, groupName);
-        if (!category.deleted && !category.hidden) {
+        if (!category.deleted) {
           categories.add(category);
         }
       }
