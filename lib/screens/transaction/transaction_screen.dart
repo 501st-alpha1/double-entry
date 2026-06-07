@@ -400,6 +400,8 @@ class _PostingRowState extends ConsumerState<_PostingRow> {
   /// Shows the YNAB link button if the account has no ynabId,
   /// including accounts that haven't been saved to the DB yet.
   Widget _buildLinkButton(BuildContext context, PostingFormRow row) {
+    final notifier = ref.read(transactionFormProvider.notifier);
+
     if (row.account == null) return const SizedBox.shrink();
 
     // Account not yet in DB (typed manually) — show mapping sheet
