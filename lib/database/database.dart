@@ -218,6 +218,20 @@ class AccountDao {
         unlinkedAccountsInPendingTransactions());
   }
 
+  Stream<List<AccountRow>> watchSearch(String query) {
+    final q = '%${query.toLowerCase()}%';
+    return (_db.select(_db.accounts)
+          ..where((a) =>
+              a.ledgerName.lower().like(q) |
+              a.ynabName.lower().like(q))
+          ..orderBy([(a) => OrderingTerm.asc(a.ledgerName)]))
+        .watch();
+  }
+
+  Future<void> rename(String id, String newLedgerName) =>
+      (_db.update(_db.accounts)..where((a) => a.id.equals(id)))
+          .write(AccountsCompanion(ledgerName: Value(newLedgerName)));
+
   Future<void> upsert(AccountsCompanion account) =>
       _db.into(_db.accounts).insertOnConflictUpdate(account);
 
@@ -255,6 +269,32 @@ class PayeeDao {
             ..where((p) => p.payeeTemplateId.equals(templateId))
             ..orderBy([(p) => OrderingTerm.asc(p.sortOrder)]))
           .get();
+
+  Stream<List<PayeeRow>> watchSearch(String query) {
+    final q = '%${query.toLowerCase()}%';
+    return (_db.select(_db.payees)
+          ..where((p) => p.name.lower().like(q))
+          ..orderBy([(p) => OrderingTerm.asc(p.name)]))
+        .watch();
+  }
+
+  Future<void> rename(String id, String newName) =>
+      (_db.update(_db.payees)..where((p) => p.id.equals(id)))
+          .write(PayeesCompanion(name: Value(newName)));
+
+  Future<void> deletePayee(String id) async {
+    // Delete templates and their posting templates first
+    final templates = await templatesForPayee(id);
+    for (final t in templates) {
+      await (_db.delete(_db.postingTemplates)
+            ..where((p) => p.payeeTemplateId.equals(t.id)))
+          .go();
+    }
+    await (_db.delete(_db.payeeTemplates)
+          ..where((t) => t.payeeId.equals(id)))
+        .go();
+    await (_db.delete(_db.payees)..where((p) => p.id.equals(id))).go();
+  }
 
   Future<void> upsertPayee(PayeesCompanion payee) =>
       _db.into(_db.payees).insertOnConflictUpdate(payee);

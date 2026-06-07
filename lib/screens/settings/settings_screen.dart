@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../repositories/ynab/ynab_client.dart';
+import '../../routing/router.dart';
 import '../../services/settings_service.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -28,6 +30,23 @@ class SettingsScreen extends ConsumerWidget {
             // ── Ledger ────────────────────────────────────
             const _SectionHeader(title: 'Ledger'),
             _LedgerPathTile(path: settings.ledgerOutputPath),
+
+            // ── Data management ───────────────────────────
+            const _SectionHeader(title: 'Data'),
+            ListTile(
+              leading: const Icon(Icons.account_tree_outlined),
+              title: const Text('Accounts & Categories'),
+              subtitle: const Text('Rename, delete, or link to YNAB'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.push(Routes.accounts),
+            ),
+            ListTile(
+              leading: const Icon(Icons.store_outlined),
+              title: const Text('Payees'),
+              subtitle: const Text('Rename or delete payees'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.push(Routes.payees),
+            ),
 
             // ── Status ────────────────────────────────────
             const _SectionHeader(title: 'Status'),

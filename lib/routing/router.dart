@@ -5,7 +5,10 @@ import '../screens/home/home_screen.dart';
 import '../screens/transaction/transaction_screen.dart';
 import '../screens/transaction/transaction_detail_screen.dart';
 import '../screens/settings/settings_screen.dart';
+
+import '../screens/accounts/accounts_screen.dart';
 import '../screens/accounts/unlinked_accounts_screen.dart';
+import '../screens/payees/payees_screen.dart';
 
 // Route path constants — use these everywhere instead of raw strings.
 class Routes {
@@ -15,6 +18,8 @@ class Routes {
   static const editTransaction = '/transaction/:id/edit';
   static const settings = '/settings';
   static const unlinkedAccounts = '/accounts/unlinked';
+  static const accounts = '/accounts';
+  static const payees = '/payees';
 
   static String transactionDetailPath(String id) => '/transaction/$id';
   static String editTransactionPath(String id) => '/transaction/$id/edit';
@@ -53,6 +58,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Routes.unlinkedAccounts,
         builder: (context, state) => const UnlinkedAccountsScreen(),
+      ),
+      GoRoute(
+        path: Routes.accounts,
+        builder: (context, state) => const AccountsScreen(),
+      ),
+      GoRoute(
+        path: Routes.payees,
+        builder: (context, state) => const PayeesScreen(),
       ),
     ],
     // Simple error page for unmatched routes
