@@ -1,7 +1,11 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../database/dao_providers.dart';
 import '../../database/database.dart';
+
+bool get _isDesktop =>
+    Platform.isLinux || Platform.isMacOS || Platform.isWindows;
 
 // ─────────────────────────────────────────────
 // Providers
@@ -89,10 +93,28 @@ class _PayeeTile extends ConsumerWidget {
           ref.read(payeeDaoProvider).deletePayee(payee.id),
       child: ListTile(
         title: Text(payee.name),
-        trailing: IconButton(
-          icon: const Icon(Icons.edit_outlined, size: 20),
-          tooltip: 'Rename',
-          onPressed: () => _showRenameDialog(context, ref),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.edit_outlined, size: 20),
+              tooltip: 'Rename',
+              onPressed: () => _showRenameDialog(context, ref),
+            ),
+            if (_isDesktop)
+              IconButton(
+                icon: Icon(Icons.delete_outline,
+                    size: 20,
+                    color: Theme.of(context).colorScheme.error),
+                tooltip: 'Delete',
+                onPressed: () async {
+                  final confirmed = await _confirmDelete(context);
+                  if (confirmed == true) {
+                    await ref.read(payeeDaoProvider).deletePayee(payee.id);
+                  }
+                },
+              ),
+          ],
         ),
       ),
     );

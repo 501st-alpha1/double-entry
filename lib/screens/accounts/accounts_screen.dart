@@ -1,8 +1,12 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../database/dao_providers.dart';
 import '../../database/database.dart';
 import '../../widgets/ynab_mapping_sheet.dart';
+
+bool get _isDesktop =>
+    Platform.isLinux || Platform.isMacOS || Platform.isWindows;
 
 // ─────────────────────────────────────────────
 // Providers
@@ -114,6 +118,19 @@ class _AccountTile extends ConsumerWidget {
               tooltip: 'Rename',
               onPressed: () => _showRenameDialog(context, ref),
             ),
+            if (_isDesktop)
+              IconButton(
+                icon: Icon(Icons.delete_outline,
+                    size: 20,
+                    color: Theme.of(context).colorScheme.error),
+                tooltip: 'Delete',
+                onPressed: () async {
+                  final confirmed = await _confirmDelete(context);
+                  if (confirmed == true) {
+                    await ref.read(accountDaoProvider).delete(account.id);
+                  }
+                },
+              ),
           ],
         ),
       ),
