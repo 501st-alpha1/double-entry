@@ -37,8 +37,12 @@ class TransactionFormNotifier extends StateNotifier<TransactionFormState> {
   void setNote(String note) => state = state.copyWith(note: note);
 
   /// Called when the user types in the payee field.
-  /// Clears the resolved payee if the name no longer matches.
+  /// Only clears the resolved payee if the name no longer matches it.
   void setPayeeRaw(String name) {
+    final currentPayee = state.payee;
+    final nameMatchesSelected =
+        currentPayee != null && currentPayee.name == name.trim();
+    if (nameMatchesSelected) return;
     state = state.copyWith(payeeNameRaw: name, clearPayee: true);
   }
 
