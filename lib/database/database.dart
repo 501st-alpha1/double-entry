@@ -213,8 +213,8 @@ class AccountDao {
   }
 
   Stream<List<AccountRow>> watchUnlinkedAccountsInPendingTransactions() async* {
-    // Re-run whenever transactions or accounts change
-    yield* _db.select(_db.transactions).watch().asyncMap((_) =>
+    // Re-run whenever accounts or postings change
+    yield* _db.select(_db.accounts).watch().asyncMap((_) =>
         unlinkedAccountsInPendingTransactions());
   }
 
