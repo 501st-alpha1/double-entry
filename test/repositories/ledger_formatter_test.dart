@@ -20,11 +20,11 @@ void main() {
   );
   final budgetFood = Account(
     id: 'budget-food-1',
-    ledgerName: 'assets:budget:food',
+    ledgerName: '[Assets:Budget:Food]',
   );
   final budgetOffset = Account(
     id: 'budget-offset-1',
-    ledgerName: 'liabilities:budget',
+    ledgerName: '[Liabilities:Budget]',
   );
 
   group('LedgerFormatter', () {
@@ -54,8 +54,8 @@ void main() {
       expect(output, contains('2024/01/15 Whole Foods'));
       expect(output, contains('Expenses:Food'));
       expect(output, contains('Assets:Bank:Checking'));
-      expect(output, contains('Assets:Budget:Food'));
-      expect(output, contains('Liabilities:Budget'));
+      expect(output, contains('[Assets:Budget:Food]'));
+      expect(output, contains('[Liabilities:Budget]'));
       expect(output, contains(r'$45.00'));
       expect(output, contains(r'-$45.00'));
     });
@@ -102,7 +102,7 @@ void main() {
       final output = formatter.formatTransaction(transaction);
       final foodIdx = output.indexOf('Expenses:Food');
       final bankIdx = output.indexOf('Assets:Bank');
-      final budgetIdx = output.indexOf('Assets:Budget');
+      final budgetIdx = output.indexOf('[Assets:Budget');
 
       expect(foodIdx, lessThan(budgetIdx));
       expect(bankIdx, lessThan(budgetIdx));

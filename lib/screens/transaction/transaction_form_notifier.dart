@@ -281,7 +281,7 @@ class TransactionFormNotifier extends StateNotifier<TransactionFormState> {
 
           // Offset posting against liabilities:budget
           final offsetAccountId = await _resolveOrCreateAccount(
-            'Liabilities:Budget',
+            '[Liabilities:Budget]',
           );
           await transactionDao.insertPosting(
             db.PostingsCompanion.insert(

@@ -30,7 +30,7 @@ class Account {
   String? get budgetMirrorLedgerName {
     if (!ledgerName.toLowerCase().startsWith('expenses:')) return null;
     final subcategory = ledgerName.substring(ledgerName.indexOf(':') + 1);
-    return 'Assets:Budget:$subcategory';
+    return '[Assets:Budget:$subcategory]';
   }
 
   Account copyWith({
