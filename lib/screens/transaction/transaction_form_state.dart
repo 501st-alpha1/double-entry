@@ -101,11 +101,13 @@ class TransactionFormState {
     return isNegative ? '-$formatted' : formatted;
   }
 
-  /// True when all posting rows are valid and the form is ready to save.
+  /// True when all posting rows are valid, the form is ready to save,
+  /// and postings sum to zero (required by Ledger double-entry).
   bool get isValid =>
       payeeNameRaw.trim().isNotEmpty &&
       postingRows.isNotEmpty &&
       postingRows.every((r) => r.isValid) &&
+      totalMilliunits == 0 &&
       !isSaving;
 
   TransactionFormState copyWith({
