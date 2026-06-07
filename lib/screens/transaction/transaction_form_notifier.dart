@@ -47,22 +47,26 @@ class TransactionFormNotifier extends StateNotifier<TransactionFormState> {
   }
 
   /// Called when the user selects a payee from the typeahead.
-  /// Autofills posting rows from the payee's default template.
+  /// Autofills posting rows from the payee's default template if available.
   void selectPayee(Payee payee) {
-    final template = payee.defaultTemplate;
-    final rows = template.postingTemplates
-        .where((t) => !t.isBudgetMirror)
-        .toList();
+    List<PostingFormRow> formRows = [];
 
-    final formRows = rows.asMap().entries.map((e) => PostingFormRow(
-          rowId: _uuid.v4(),
-          account: e.value.account,
-          amountRaw: e.value.defaultAmountMilliunits != null
-              ? _milliunitsToRaw(e.value.defaultAmountMilliunits!)
-              : '',
-          memo: e.value.memo,
-          isSource: e.key == 0, // first row is source by default
-        )).toList();
+    if (payee.templates.isNotEmpty) {
+      final template = payee.defaultTemplate;
+      final rows = template.postingTemplates
+          .where((t) => !t.isBudgetMirror)
+          .toList();
+
+      formRows = rows.asMap().entries.map((e) => PostingFormRow(
+            rowId: _uuid.v4(),
+            account: e.value.account,
+            amountRaw: e.value.defaultAmountMilliunits != null
+                ? _milliunitsToRaw(e.value.defaultAmountMilliunits!)
+                : '',
+            memo: e.value.memo,
+            isSource: e.key == 0,
+          )).toList();
+    }
 
     state = state.copyWith(
       payee: payee,
