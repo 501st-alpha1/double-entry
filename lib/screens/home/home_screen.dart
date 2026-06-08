@@ -242,7 +242,7 @@ extension _HomeScreenSync on HomeScreen {
           .unlinkedAccountsInPendingTransactions();
 
       if (unlinked.isNotEmpty && context.mounted) {
-        final proceed = await _showUnlinkedDialog(context, ref, unlinked);
+        final proceed = await _showUnlinkedDialog(context, ref);
         if (!proceed || !context.mounted) return;
       }
     }
@@ -303,53 +303,70 @@ extension _HomeScreenSync on HomeScreen {
   Future<bool> _showUnlinkedDialog(
     BuildContext context,
     WidgetRef ref,
-    List<AccountRow> unlinked,
   ) async {
     final result = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Unlinked Accounts'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'The following account${unlinked.length == 1 ? '' : 's'} '
-              '${unlinked.length == 1 ? 'has' : 'have'} no YNAB mapping. '
-              'YNAB sync may fail for affected transactions.',
-            ),
-            const SizedBox(height: 12),
-            ...unlinked.map((a) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 2),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.link_off, size: 16),
-                      const SizedBox(width: 8),
-                      Expanded(child: Text(a.ledgerName)),
-                      TextButton(
-                        onPressed: () async {
-                          await showYnabMappingSheet(context, ref, a);
-                        },
-                        child: const Text('Link'),
-                      ),
-                    ],
-                  ),
-                )),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Sync Anyway'),
-          ),
-        ],
-      ),
+      builder: (context) => const _UnlinkedAccountsDialog(),
     );
     return result ?? false;
   }
 }
 
+class _UnlinkedAccountsDialog extends ConsumerWidget {
+  const _UnlinkedAccountsDialog();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final unlinkedAsync = ref.watch(_unlinkedAccountsProvider);
+
+    return AlertDialog(
+      title: const Text('Unlinked Accounts'),
+      content: unlinkedAsync.when(
+        loading: () => const SizedBox(
+          height: 60,
+          child: Center(child: CircularProgressIndicator()),
+        ),
+        error: (e, _) => Text('Error: $e'),
+        data: (unlinked) => unlinked.isEmpty
+            ? const Text('All accounts are now linked. Ready to sync.')
+            : Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'The following account${unlinked.length == 1 ? '' : 's'} '
+                    '${unlinked.length == 1 ? 'has' : 'have'} no YNAB mapping. '
+                    'YNAB sync may fail for affected transactions.',
+                  ),
+                  const SizedBox(height: 12),
+                  ...unlinked.map((a) => Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.link_off, size: 16),
+                            const SizedBox(width: 8),
+                            Expanded(child: Text(a.ledgerName)),
+                            TextButton(
+                              onPressed: () =>
+                                  showYnabMappingSheet(context, ref, a),
+                              child: const Text('Link'),
+                            ),
+                          ],
+                        ),
+                      )),
+                ],
+              ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, true),
+          child: const Text('Sync Anyway'),
+        ),
+      ],
+    );
+  }
+}
