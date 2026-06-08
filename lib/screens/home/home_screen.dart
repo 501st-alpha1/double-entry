@@ -364,7 +364,9 @@ class _UnlinkedAccountsDialog extends ConsumerWidget {
         ),
         FilledButton(
           onPressed: () => Navigator.pop(context, true),
-          child: const Text('Sync Anyway'),
+          child: Text(unlinkedAsync.valueOrNull?.isEmpty == true
+              ? 'Sync'
+              : 'Sync Anyway'),
         ),
       ],
     );
