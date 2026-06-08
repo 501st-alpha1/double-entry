@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../models/models.dart';
 import '../../database/dao_providers.dart';
-import '../../database/database.dart' show AccountRow, PayeeRow;
+import '../../database/database.dart' show AccountRow, PayeeRow, AccountSearchFilter;
 import '../../repositories/ynab/ynab_reference_data.dart';
 import '../../widgets/keyboard_autocomplete.dart';
 import '../../widgets/ynab_mapping_sheet.dart';
@@ -347,6 +347,7 @@ class _PostingRowState extends ConsumerState<_PostingRow> {
             selectedAccount: row.account,
             onSelected: (account) =>
                 notifier.setPostingAccount(row.rowId, account),
+            transactionType: ref.watch(transactionFormProvider).type,
           ),
         ),
         const SizedBox(width: 8),
@@ -457,11 +458,13 @@ class _AccountTypeahead extends ConsumerStatefulWidget {
   final String rowId;
   final Account? selectedAccount;
   final ValueChanged<Account> onSelected;
+  final TransactionType transactionType;
 
   const _AccountTypeahead({
     required this.rowId,
     required this.selectedAccount,
     required this.onSelected,
+    required this.transactionType,
   });
 
   @override
@@ -479,7 +482,12 @@ class _AccountTypeaheadState extends ConsumerState<_AccountTypeahead> {
       optionsBuilder: (textEditingValue) async {
         if (textEditingValue.text.isEmpty) return [];
         final accountDao = ref.read(accountDaoProvider);
-        return accountDao.search(textEditingValue.text);
+        final filter = switch (widget.transactionType) {
+          TransactionType.expense => AccountSearchFilter.expense,
+          TransactionType.budgetMove => AccountSearchFilter.budgetMove,
+          TransactionType.transfer => AccountSearchFilter.transfer,
+        };
+        return accountDao.search(textEditingValue.text, filter: filter);
       },
       onSelected: (row) => widget.onSelected(_accountRowToModel(row)),
       fieldViewBuilder: (context, controller, focusNode, onSubmitted) {

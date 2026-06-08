@@ -180,16 +180,47 @@ class AccountDao {
       (_db.select(_db.accounts)..where((a) => a.id.equals(id)))
           .getSingleOrNull();
 
-  /// Search accounts by partial match on ledgerName or ynabName.
-  /// Used for the typeahead widget.
-  Future<List<AccountRow>> search(String query) {
+  /// Search accounts by partial match on ledgerName or ynabName,
+  /// filtered by transaction type context.
+  Future<List<AccountRow>> search(String query,
+      {AccountSearchFilter filter = AccountSearchFilter.none}) {
     final q = '%${query.toLowerCase()}%';
     return (_db.select(_db.accounts)
-          ..where((a) =>
-              a.ledgerName.lower().like(q) |
-              a.ynabName.lower().like(q)))
+          ..where((a) {
+            final matchesQuery =
+                a.ledgerName.lower().like(q) | a.ynabName.lower().like(q);
+            switch (filter) {
+              case AccountSearchFilter.none:
+                return matchesQuery;
+              case AccountSearchFilter.expense:
+                // Exclude budget mirror accounts (those starting with '[')
+                return matchesQuery & a.ledgerName.like('[%').not();
+              case AccountSearchFilter.budgetMove:
+                // Only show budget category accounts
+                return matchesQuery & a.ledgerName.like('[Assets:Budget:%');
+              case AccountSearchFilter.transfer:
+                // Only real asset/liability accounts, no budget mirrors
+                return matchesQuery &
+                    a.ledgerName.like('[%').not() &
+                    (a.ledgerName.lower().like('assets:%') |
+                        a.ledgerName.lower().like('liabilities:%')) &
+                    a.ledgerName.lower().like('expenses:%').not();
+            }
+          }))
         .get();
   }
+
+/// Controls which accounts are shown in the posting row typeahead.
+enum AccountSearchFilter {
+  /// No filter — show all accounts (used in accounts management screen).
+  none,
+  /// Regular expense/income — hide budget mirror accounts.
+  expense,
+  /// Budget move — show only [Assets:Budget:*] accounts.
+  budgetMove,
+  /// Transfer — show only real Assets/Liabilities, no budget or expense accounts.
+  transfer,
+}
 
   /// Returns accounts used in pending transactions that have no ynabId.
   /// Used to drive the YNAB mapping prompts.
