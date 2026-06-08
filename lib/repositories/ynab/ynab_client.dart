@@ -97,6 +97,38 @@ class YnabClient {
     return categories;
   }
 
+  /// Gets a single category for a given month to read its current budgeted amount.
+  /// [month] should be formatted as "YYYY-MM-01".
+  Future<int> getCategoryBudgeted(
+    String budgetId,
+    String categoryId,
+    String month,
+  ) async {
+    final response = await _dio.get(
+      '/budgets/$budgetId/months/$month/categories/$categoryId',
+    );
+    return response.data['data']['category']['budgeted'] as int;
+  }
+
+  /// Updates the budgeted amount for a category in a given month.
+  /// [month] should be formatted as "YYYY-MM-01" (first of the month).
+  /// [budgetedDelta] is added to the existing budgeted amount in milliunits.
+  Future<void> patchCategoryBudgeted(
+    String budgetId,
+    String categoryId,
+    String month,
+    int budgetedMilliunits,
+  ) async {
+    await _dio.patch(
+      '/budgets/$budgetId/months/$month/categories/$categoryId',
+      data: {
+        'category': {
+          'budgeted': budgetedMilliunits,
+        },
+      },
+    );
+  }
+
   // ─────────────────────────────────────────────
   // Transactions
   // ─────────────────────────────────────────────

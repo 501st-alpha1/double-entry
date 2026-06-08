@@ -52,6 +52,13 @@ class YnabSyncRepository {
 
     for (final tx in toSync) {
       try {
+        // Budget moves are handled differently — PATCH category budgeted amounts
+        if (tx.type == 'budgetMove') {
+          final result = await _syncBudgetMove(tx);
+          results.add(result);
+          continue;
+        }
+
         final ynabTx = await _buildYnabTransaction(tx);
         if (ynabTx == null) {
           // No source account found — mark as failed
@@ -206,6 +213,73 @@ class YnabSyncRepository {
     final m = date.month.toString().padLeft(2, '0');
     final d = date.day.toString().padLeft(2, '0');
     return '$y-$m-$d';
+  }
+
+  /// Formats a date as a YNAB month string: "YYYY-MM-01"
+  String _formatMonth(DateTime date) {
+    final y = date.year.toString().padLeft(4, '0');
+    final m = date.month.toString().padLeft(2, '0');
+    return '$y-$m-01';
+  }
+
+  /// Syncs a budget move by PATCHing the budgeted amount on each category.
+  /// Budget move postings are all mirror postings — each has a ynabId pointing
+  /// to a YNAB category. We adjust each category's budgeted amount by the
+  /// posting's amount.
+  Future<YnabSyncResult> _syncBudgetMove(TransactionRow tx) async {
+    final postings = await _transactionDao.postingsForTransaction(tx.id);
+    final month = _formatMonth(tx.date);
+
+    for (final posting in postings) {
+      final account = await _accountDao.findById(posting.accountId);
+      final categoryId = account?.ynabId;
+
+      if (categoryId == null) {
+        await _transactionDao.updateSyncStatus(
+          transactionId: tx.id,
+          ynabStatus: 'failed',
+        );
+        return YnabSyncResult(
+          transactionId: tx.id,
+          success: false,
+          error:
+              'Budget move posting "${account?.ledgerName ?? posting.accountId}" '
+              'has no YNAB category linked.',
+        );
+      }
+
+      // Fetch the current budgeted amount and add our delta
+      // YNAB PATCH replaces the budgeted value, so we need to read first
+      try {
+        final current = await _client.getCategoryBudgeted(
+          _budgetId,
+          categoryId,
+          month,
+        );
+        await _client.patchCategoryBudgeted(
+          _budgetId,
+          categoryId,
+          month,
+          current + posting.amountMilliunits,
+        );
+      } catch (e) {
+        await _transactionDao.updateSyncStatus(
+          transactionId: tx.id,
+          ynabStatus: 'failed',
+        );
+        return YnabSyncResult(
+          transactionId: tx.id,
+          success: false,
+          error: 'Failed to patch category $categoryId: $e',
+        );
+      }
+    }
+
+    await _transactionDao.updateSyncStatus(
+      transactionId: tx.id,
+      ynabStatus: 'synced',
+    );
+    return YnabSyncResult(transactionId: tx.id, success: true);
   }
 }
 
