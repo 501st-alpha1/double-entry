@@ -165,6 +165,18 @@ class AppDatabase extends _$AppDatabase {
 // DAOs
 // ─────────────────────────────────────────────
 
+/// Controls which accounts are shown in the posting row typeahead.
+enum AccountSearchFilter {
+  /// No filter — show all accounts (used in accounts management screen).
+  none,
+  /// Regular expense/income — hide budget mirror accounts.
+  expense,
+  /// Budget move — show only [Assets:Budget:*] accounts.
+  budgetMove,
+  /// Transfer — show only real Assets/Liabilities, no budget or expense accounts.
+  transfer,
+}
+
 /// Data access for accounts.
 class AccountDao {
   final AppDatabase _db;
@@ -209,18 +221,6 @@ class AccountDao {
           }))
         .get();
   }
-
-/// Controls which accounts are shown in the posting row typeahead.
-enum AccountSearchFilter {
-  /// No filter — show all accounts (used in accounts management screen).
-  none,
-  /// Regular expense/income — hide budget mirror accounts.
-  expense,
-  /// Budget move — show only [Assets:Budget:*] accounts.
-  budgetMove,
-  /// Transfer — show only real Assets/Liabilities, no budget or expense accounts.
-  transfer,
-}
 
   /// Returns accounts used in pending transactions that have no ynabId.
   /// Used to drive the YNAB mapping prompts.
