@@ -1,7 +1,9 @@
 import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../models/models.dart';
-import '../../../services/settings_service.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
+import '../../models/models.dart';
+import '../../services/settings_service.dart';
 import 'ledger_formatter.dart';
 
 // ─────────────────────────────────────────────
@@ -46,11 +48,7 @@ class LocalFileLedgerOutputRepository implements LedgerOutputRepository {
   Future<void> write(List<Transaction> transactions) async {
     if (transactions.isEmpty) return;
 
-    // Expand ~ to the home directory
-    final resolvedPath = outputPath.startsWith('~/')
-        ? '${Platform.environment['HOME']}/${outputPath.substring(2)}'
-        : outputPath;
-
+    final resolvedPath = await _resolvePath(outputPath);
     final file = File(resolvedPath);
 
     try {
@@ -80,6 +78,23 @@ class LocalFileLedgerOutputRepository implements LedgerOutputRepository {
         e,
       );
     }
+  }
+
+  /// Resolves the output path:
+  /// - Absolute paths starting with / are used as-is
+  /// - ~ is expanded to the home directory (desktop)
+  /// - Relative paths (no leading /) are resolved relative to the
+  ///   app documents directory (works on both Android and desktop)
+  Future<String> _resolvePath(String path) async {
+    if (path.startsWith('~/')) {
+      final home = Platform.environment['HOME'];
+      if (home != null) return '$home/${path.substring(2)}';
+    }
+    if (path.startsWith('/')) return path;
+
+    // Relative path — resolve against app documents directory
+    final docsDir = await getApplicationDocumentsDirectory();
+    return p.join(docsDir.path, path);
   }
 }
 

@@ -325,13 +325,15 @@ class _LedgerPathTile extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Full path to the Ledger file the app should append to.',
+              'Full path on desktop (e.g. ~/Documents/mobile.ledger), '
+              'or just a filename on Android (e.g. mobile.ledger) '
+              'to save in the app\'s private storage.',
             ),
             const SizedBox(height: 4),
             const Text(
-              'On Android this should be a path within app storage. '
-              'On desktop this can be any path, e.g. ~/Documents/mobile.ledger',
-              style: TextStyle(fontSize: 12),
+              'On Android, retrieve the file via:\n'
+              'adb pull /data/user/0/com.example.double_entry/app_flutter/mobile.ledger',
+              style: TextStyle(fontSize: 11, fontFamily: 'monospace'),
             ),
             const SizedBox(height: 16),
             TextField(
