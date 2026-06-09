@@ -221,11 +221,11 @@ class TransactionFormNotifier extends StateNotifier<TransactionFormState> {
       final payeeDao = _ref.read(payeeDaoProvider);
 
       // Resolve or create payee
-      final payeeId = await _resolvePayeeId(payeeDao, savePayeeDefaults,
-          effectivePayeeName: effectivePayeeName);
       final effectivePayeeName = state.payeeNameRaw.trim().isNotEmpty
           ? state.payeeNameRaw.trim()
           : (state.budgetMovePayee ?? '');
+      final payeeId = await _resolvePayeeId(payeeDao, savePayeeDefaults,
+          effectivePayeeName: effectivePayeeName);
 
       // If editing, delete old postings and update the transaction row in place.
       // This preserves the original createdAt and transaction ID.
