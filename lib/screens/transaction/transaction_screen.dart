@@ -408,8 +408,15 @@ class _PostingRowState extends ConsumerState<_PostingRow> {
     if (row.account == null) return const SizedBox.shrink();
     final notifier = ref.read(transactionFormProvider.notifier);
 
-    // Account not yet in DB (typed manually) — show mapping sheet
-    // and store selection in form state for application on save
+    // For Expenses:* accounts, check the associated budget mirror account
+    final ledgerName = row.account!.ledgerName;
+    final isBudgetMirrorCheck =
+        ledgerName.toLowerCase().startsWith('expenses:');
+    final checkLedgerName = isBudgetMirrorCheck
+        ? row.account!.budgetMirrorLedgerName ?? ledgerName
+        : ledgerName;
+
+    // Account not yet in DB (typed manually) — show link button
     if (row.account!.id.isEmpty) {
       final hasPending = row.pendingYnabId != null;
       return Tooltip(
@@ -418,7 +425,7 @@ class _PostingRowState extends ConsumerState<_PostingRow> {
             : 'Link to YNAB',
         child: IconButton(
           icon: Icon(
-            hasPending ? Icons.link : Icons.link,
+            Icons.link,
             size: 18,
             color: hasPending
                 ? Theme.of(context).colorScheme.primary
@@ -435,16 +442,22 @@ class _PostingRowState extends ConsumerState<_PostingRow> {
       );
     }
 
-    // Account in DB — check if it has a ynabId
+    // Account in DB — check if the relevant account has a ynabId
     return FutureBuilder<AccountRow?>(
-      future: ref.read(accountDaoProvider).findById(row.account!.id),
+      future: isBudgetMirrorCheck
+          ? ref.read(accountDaoProvider).allAccounts().then(
+                (list) => list
+                    .where((a) => a.ledgerName == checkLedgerName)
+                    .firstOrNull,
+              )
+          : ref.read(accountDaoProvider).findById(row.account!.id),
       builder: (context, snap) {
         final dbAccount = snap.data;
         if (dbAccount == null || dbAccount.ynabId != null) {
           return const SizedBox.shrink();
         }
         return Tooltip(
-          message: 'Link to YNAB',
+          message: 'Link ${dbAccount.ledgerName} to YNAB',
           child: IconButton(
             icon: Icon(Icons.link,
                 size: 18, color: Theme.of(context).colorScheme.error),
