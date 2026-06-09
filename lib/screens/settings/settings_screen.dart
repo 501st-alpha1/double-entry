@@ -31,6 +31,10 @@ class SettingsScreen extends ConsumerWidget {
             const _SectionHeader(title: 'Ledger'),
             _LedgerPathTile(path: settings.ledgerOutputPath),
 
+            // ── Transactions ──────────────────────────────
+            const _SectionHeader(title: 'Transactions'),
+            _BudgetMovePayeeTile(payee: settings.budgetMovePayee),
+
             // ── Data management ───────────────────────────
             const _SectionHeader(title: 'Data'),
             ListTile(
@@ -294,8 +298,71 @@ class _YnabBudgetTile extends ConsumerWidget {
 }
 
 // ─────────────────────────────────────────────
-// Ledger output path tile
+// Budget move payee tile
 // ─────────────────────────────────────────────
+
+class _BudgetMovePayeeTile extends ConsumerWidget {
+  final String? payee;
+  const _BudgetMovePayeeTile({required this.payee});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return ListTile(
+      leading: const Icon(Icons.swap_horiz_outlined),
+      title: const Text('Budget Move Payee'),
+      subtitle: Text(payee ?? 'Not set — payee field will be shown'),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () => _showDialog(context, ref),
+    );
+  }
+
+  Future<void> _showDialog(BuildContext context, WidgetRef ref) async {
+    final controller = TextEditingController(text: payee);
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Budget Move Payee'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'This payee is used automatically for budget move transactions, '
+              'hiding the payee field from the form.',
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              decoration: const InputDecoration(
+                labelText: 'Payee name',
+                hintText: 'e.g. Your Name',
+              ),
+              textCapitalization: TextCapitalization.words,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              final value = controller.text.trim();
+              if (value.isNotEmpty) {
+                await ref
+                    .read(settingsProvider.notifier)
+                    .setBudgetMovePayee(value);
+              }
+              if (context.mounted) Navigator.pop(context);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class _LedgerPathTile extends ConsumerWidget {
   final String? path;

@@ -5,6 +5,7 @@ import '../../models/models.dart';
 import '../../database/dao_providers.dart';
 import '../../database/database.dart' show AccountRow, PayeeRow, AccountSearchFilter;
 import '../../repositories/ynab/ynab_reference_data.dart';
+import '../../services/settings_service.dart';
 import '../../widgets/keyboard_autocomplete.dart';
 import '../../widgets/ynab_mapping_sheet.dart';
 import 'transaction_form_state.dart';
@@ -83,9 +84,12 @@ class _TransactionScreenState extends ConsumerState<TransactionScreen> {
             _DateTimeRow(),
             const SizedBox(height: 16),
 
-            // Payee field
-            _PayeeField(),
-            const SizedBox(height: 16),
+            // Payee field, if needed.
+            if (formState.type != TransactionType.budgetMove ||
+                ref.watch(settingsProvider).valueOrNull?.budgetMovePayee == null) ...[
+              _PayeeField(),
+              const SizedBox(height: 16),
+            ],
 
             // Posting rows
             _PostingRowList(),

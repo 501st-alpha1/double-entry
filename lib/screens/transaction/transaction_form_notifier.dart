@@ -5,6 +5,7 @@ import '../../database/dao_providers.dart';
 import '../../database/database.dart' as db;
 import '../../database/database.dart' show PayeeDao;
 import '../../models/models.dart';
+import '../../services/settings_service.dart';
 import 'transaction_form_state.dart';
 
 const _uuid = Uuid();
@@ -25,9 +26,16 @@ class TransactionFormNotifier extends StateNotifier<TransactionFormState> {
   // ─────────────────────────────────────────────
 
   void setType(TransactionType type) {
-    state = state.copyWith(type: type, postingRows: [
-      PostingFormRow(rowId: _uuid.v4(), isSource: true),
-    ]);
+    final budgetMovePayee = type == TransactionType.budgetMove
+        ? _ref.read(settingsProvider).valueOrNull?.budgetMovePayee
+        : null;
+
+    state = state.copyWith(
+      type: type,
+      postingRows: [PostingFormRow(rowId: _uuid.v4(), isSource: true)],
+      payeeNameRaw: budgetMovePayee ?? '',
+      clearPayee: true,
+    );
   }
 
   void setDate(DateTime date) => state = state.copyWith(date: date);
