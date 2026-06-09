@@ -57,7 +57,7 @@ void main() {
       expect(output, contains('[Assets:Budget:Food]'));
       expect(output, contains('[Liabilities:Budget]'));
       expect(output, contains(r'$45.00'));
-      expect(output, contains(r'-$45.00'));
+      expect(output, contains(r'$-45.00'));
     });
 
     test('includes transaction note as comment', () {
@@ -223,7 +223,52 @@ void main() {
 
       final output = formatter.formatTransaction(tx);
       expect(output, contains(r'$1.05'));
-      expect(output, contains(r'-$1.05'));
+      expect(output, contains(r'$-1.05'));
+    });
+
+    test('TransactionTime appears before note comment', () {
+      final transaction = Transaction(
+        id: 'tx-10',
+        type: TransactionType.expense,
+        date: DateTime(2024, 1, 15),
+        payee: 'Whole Foods',
+        note: 'Weekly grocery run',
+        postings: [
+          Posting(account: foodExpense, amountMilliunits: 45000),
+          Posting(account: bankAccount, amountMilliunits: -45000),
+        ],
+        createdAt: DateTime(2024, 1, 15, 13, 42),
+      );
+
+      final output = formatter.formatTransaction(transaction);
+      final timeIdx = output.indexOf('TransactionTime');
+      final noteIdx = output.indexOf('Weekly grocery run');
+      expect(timeIdx, lessThan(noteIdx));
+    });
+
+    test('amount end-column aligns to column 80', () {
+      final transaction = Transaction(
+        id: 'tx-11',
+        type: TransactionType.expense,
+        date: DateTime(2024, 1, 15),
+        payee: 'Test',
+        postings: [
+          Posting(account: foodExpense, amountMilliunits: 45000),
+          Posting(account: bankAccount, amountMilliunits: -45000),
+        ],
+        createdAt: DateTime(2024, 1, 15),
+      );
+
+      final output = formatter.formatTransaction(transaction);
+      // Each posting line should end at column 80 (before the newline)
+      for (final line in output.split('\n')) {
+        if (line.trimLeft().startsWith(';') || line.trim().isEmpty) continue;
+        if (line.startsWith('    ') && !line.trimLeft().startsWith(';;')) {
+          // Posting line — strip trailing newline and check length
+          expect(line.trimRight().length, equals(80),
+              reason: 'Posting line should be 80 chars: "$line"');
+        }
+      }
     });
   });
 }

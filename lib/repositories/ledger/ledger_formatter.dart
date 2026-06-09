@@ -21,12 +21,12 @@ class LedgerFormatter {
   /// Example output:
   /// ```
   /// 2024/01/15 Whole Foods
-  ///     ;; Picked up groceries and snacks
   ///     ;; TransactionTime: 13:42
-  ///     Expenses:Food                                                         $45.00
-  ///     Assets:Budget:Food                                                   $-45.00
-  ///     Assets:Bank:Checking                                                 $-45.00
-  ///     Liabilities:Budget                                                    $45.00
+  ///     ;; Picked up groceries and snacks
+  ///     Expenses:Food                                                        $45.00
+  ///     [Assets:Budget:Food]                                                $-45.00
+  ///     Assets:Bank:Checking                                                $-45.00
+  ///     [Liabilities:Budget]                                                 $45.00
   /// ```
   String formatTransaction(Transaction transaction) {
     final buffer = StringBuffer();
@@ -35,13 +35,13 @@ class LedgerFormatter {
     final dateStr = _formatDate(transaction.date);
     buffer.writeln('$dateStr ${transaction.payee}');
 
-    // Transaction-level note as a comment
+    // TransactionTime tag always comes first
+    buffer.writeln('    ;; TransactionTime: ${_formatTime(transaction.time)}');
+
+    // Transaction-level note as a comment (after TransactionTime)
     if (transaction.note != null && transaction.note!.isNotEmpty) {
       buffer.writeln('    ;; ${transaction.note}');
     }
-
-    // Transaction time as a Ledger tag
-    buffer.writeln('    ;; TransactionTime: ${_formatTime(transaction.time)}');
 
     // Postings: real postings first, then budget mirror postings
     final ordered = [
@@ -78,12 +78,12 @@ class LedgerFormatter {
     final accountName = posting.account.ledgerName;
     final amountStr = _formatAmount(posting.amountMilliunits);
 
-    // Pad account name to amountColumn, then append amount
-    // Ledger requires at least two spaces between account and amount
-    final padding = (amountColumn - 4 - accountName.length)
+    // Align the END of the amount string to amountColumn.
+    // Total line width = 4 (indent) + accountName + padding + amountStr
+    // So padding = amountColumn - 4 - accountName.length - amountStr.length
+    final padding = (amountColumn - 4 - accountName.length - amountStr.length)
         .clamp(2, 999);
-    final line =
-        '    $accountName${' ' * padding}$amountStr';
+    final line = '    $accountName${' ' * padding}$amountStr';
 
     // Per-posting memo as inline comment
     if (posting.memo != null && posting.memo!.isNotEmpty) {
@@ -97,8 +97,7 @@ class LedgerFormatter {
     final abs = milliunits.abs();
     final dollars = abs ~/ 1000;
     final cents = (abs % 1000) ~/ 10;
-    final formatted =
-        '$currencySymbol$dollars.${cents.toString().padLeft(2, '0')}';
-    return isNegative ? '-$formatted' : formatted;
+    final sign = isNegative ? '-' : '';
+    return '$currencySymbol$sign$dollars.${cents.toString().padLeft(2, '0')}';
   }
 }
