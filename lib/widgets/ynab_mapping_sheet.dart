@@ -9,24 +9,30 @@ import '../repositories/ynab/ynab_models.dart';
 /// Shows a bottom sheet to map a local [AccountRow] to a YNAB account
 /// or category. Updates the account's ynabId in the DB on selection.
 ///
+/// If [hideAccounts] is true, only categories are shown (used for budget accounts).
 /// Returns true if a mapping was made, false if dismissed.
 Future<bool> showYnabMappingSheet(
   BuildContext context,
   WidgetRef ref,
-  AccountRow account,
-) async {
+  AccountRow account, {
+  bool? hideAccounts,
+}) async {
+  final shouldHideAccounts = hideAccounts ??
+      account.ledgerName.startsWith('[Assets:Budget:');
   final result = await showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
-    builder: (_) => _YnabMappingSheet(account: account),
+    builder: (_) => _YnabMappingSheet(
+        account: account, hideAccounts: shouldHideAccounts),
   );
   return result ?? false;
 }
 
 class _YnabMappingSheet extends ConsumerWidget {
   final AccountRow account;
+  final bool hideAccounts;
 
-  const _YnabMappingSheet({required this.account});
+  const _YnabMappingSheet({required this.account, this.hideAccounts = false});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -94,6 +100,7 @@ class _YnabMappingSheet extends ConsumerWidget {
                     refData: refData,
                     scrollController: scrollController,
                     ref: ref,
+                    hideAccounts: hideAccounts,
                   );
                 },
               ),
@@ -110,12 +117,14 @@ class _MappingList extends StatelessWidget {
   final YnabReferenceData refData;
   final ScrollController scrollController;
   final WidgetRef ref;
+  final bool hideAccounts;
 
   const _MappingList({
     required this.account,
     required this.refData,
     required this.scrollController,
     required this.ref,
+    this.hideAccounts = false,
   });
 
   @override
@@ -126,14 +135,16 @@ class _MappingList extends StatelessWidget {
       controller: scrollController,
       children: [
         // ── Accounts section ───────────────────
-        _SectionHeader(title: 'Accounts (${refData.activeAccounts.length})'),
-        ...refData.activeAccounts.map((a) => ListTile(
-              title: Text(a.name),
-              onTap: () => _save(context,
-                  ynabId: a.id,
-                  ynabName: a.name,
-                  ynabTransferPayeeId: a.transferPayeeId),
-            )),
+        if (!hideAccounts) ...[
+          _SectionHeader(title: 'Accounts (${refData.activeAccounts.length})'),
+          ...refData.activeAccounts.map((a) => ListTile(
+                title: Text(a.name),
+                onTap: () => _save(context,
+                    ynabId: a.id,
+                    ynabName: a.name,
+                    ynabTransferPayeeId: a.transferPayeeId),
+              )),
+        ],
 
         // ── Categories section ─────────────────
         _SectionHeader(title: 'Categories'),
