@@ -1,6 +1,9 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import '../../repositories/ynab/ynab_client.dart';
 import '../../routing/router.dart';
 import '../../services/settings_service.dart';
@@ -375,11 +378,37 @@ class _LedgerPathTile extends ConsumerWidget {
       title: const Text('Output File Path'),
       subtitle: Text(path ?? 'Not set'),
       trailing: const Icon(Icons.chevron_right),
-      onTap: () => _showPathDialog(context, ref),
+      onTap: () => Platform.isAndroid
+          ? _showAndroidPicker(context, ref)
+          : _showDesktopDialog(context, ref),
     );
   }
 
-  Future<void> _showPathDialog(BuildContext context, WidgetRef ref) async {
+  /// Android: list existing *.ledger files in app docs dir + option to create new.
+  Future<void> _showAndroidPicker(BuildContext context, WidgetRef ref) async {
+    final notifier = ref.read(settingsProvider.notifier);
+    final docsDir = await getApplicationDocumentsDirectory();
+
+    // Find existing .ledger files
+    final existing = docsDir
+        .listSync()
+        .whereType<File>()
+        .where((f) => f.path.endsWith('.ledger'))
+        .map((f) => p.basename(f.path))
+        .toList()
+      ..sort();
+
+    if (!context.mounted) return;
+
+    await showDialog(
+      context: context,
+      builder: (context) =>
+          _AndroidLedgerPickerDialog(existing: existing, notifier: notifier),
+    );
+  }
+
+  /// Desktop: plain text input (path can be anywhere).
+  Future<void> _showDesktopDialog(BuildContext context, WidgetRef ref) async {
     final notifier = ref.read(settingsProvider.notifier);
     final controller = TextEditingController(text: path);
 
@@ -392,22 +421,15 @@ class _LedgerPathTile extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Full path on desktop (e.g. ~/Documents/mobile.ledger), '
-              'or just a filename on Android (e.g. mobile.ledger) '
-              'to save in the app\'s private storage.',
-            ),
-            const SizedBox(height: 4),
-            const Text(
-              'On Android, retrieve the file via:\n'
-              'adb pull /data/user/0/com.example.double_entry/app_flutter/mobile.ledger',
-              style: TextStyle(fontSize: 11, fontFamily: 'monospace'),
+              'Full path to the Ledger file the app should append to, '
+              'e.g. ~/Documents/mobile.ledger',
             ),
             const SizedBox(height: 16),
             TextField(
               controller: controller,
               decoration: const InputDecoration(
                 labelText: 'File path',
-                hintText: '/home/user/Documents/mobile.ledger',
+                hintText: '~/Documents/mobile.ledger',
               ),
               autocorrect: false,
             ),
@@ -430,6 +452,110 @@ class _LedgerPathTile extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _AndroidLedgerPickerDialog extends StatefulWidget {
+  final List<String> existing;
+  final SettingsNotifier notifier;
+
+  const _AndroidLedgerPickerDialog({
+    required this.existing,
+    required this.notifier,
+  });
+
+  @override
+  State<_AndroidLedgerPickerDialog> createState() =>
+      _AndroidLedgerPickerDialogState();
+}
+
+class _AndroidLedgerPickerDialogState
+    extends State<_AndroidLedgerPickerDialog> {
+  bool _showNewField = false;
+  final _newNameController = TextEditingController(text: 'mobile.ledger');
+
+  @override
+  void dispose() {
+    _newNameController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Ledger Output File'),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (widget.existing.isNotEmpty) ...[
+              Text('Existing files:',
+                  style: Theme.of(context).textTheme.labelMedium),
+              const SizedBox(height: 4),
+              ...widget.existing.map((name) => ListTile(
+                    dense: true,
+                    title: Text(name),
+                    leading: const Icon(Icons.description_outlined),
+                    onTap: () async {
+                      await widget.notifier.setLedgerOutputPath(name);
+                      if (context.mounted) Navigator.pop(context);
+                    },
+                  )),
+              const Divider(),
+            ],
+            if (!_showNewField)
+              TextButton.icon(
+                icon: const Icon(Icons.add),
+                label: const Text('Create new file'),
+                onPressed: () => setState(() => _showNewField = true),
+              )
+            else ...[
+              Text('New file name:',
+                  style: Theme.of(context).textTheme.labelMedium),
+              const SizedBox(height: 4),
+              TextField(
+                controller: _newNameController,
+                decoration: const InputDecoration(
+                  hintText: 'mobile.ledger',
+                  suffixText: '.ledger',
+                ),
+                autocorrect: false,
+                autofocus: true,
+              ),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () =>
+                        setState(() => _showNewField = false),
+                    child: const Text('Cancel'),
+                  ),
+                  FilledButton(
+                    onPressed: () async {
+                      var name = _newNameController.text.trim();
+                      if (name.isEmpty) return;
+                      if (!name.endsWith('.ledger')) name = '$name.ledger';
+                      await widget.notifier.setLedgerOutputPath(name);
+                      if (context.mounted) Navigator.pop(context);
+                    },
+                    child: const Text('Create'),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+      ],
     );
   }
 }
