@@ -73,6 +73,10 @@ class TransactionFormState {
   /// Validation error message, if any.
   final String? error;
 
+  /// The budget move payee from settings, used when type is budgetMove
+  /// and the payee field is hidden.
+  final String? budgetMovePayee;
+
   const TransactionFormState({
     this.type = TransactionType.expense,
     required this.date,
@@ -83,6 +87,7 @@ class TransactionFormState {
     this.note,
     this.isSaving = false,
     this.error,
+    this.budgetMovePayee,
   });
 
   /// The sum of all posting amounts in milliunits.
@@ -104,11 +109,16 @@ class TransactionFormState {
   /// True when all posting rows are valid, the form is ready to save,
   /// and postings sum to zero (required by Ledger double-entry).
   bool get isValid =>
-      payeeNameRaw.trim().isNotEmpty &&
+      _hasPayee &&
       postingRows.isNotEmpty &&
       postingRows.every((r) => r.isValid) &&
       totalMilliunits == 0 &&
       !isSaving;
+
+  /// True if a payee is provided either via the field or the budget move default.
+  bool get _hasPayee =>
+      payeeNameRaw.trim().isNotEmpty ||
+      (type == TransactionType.budgetMove && budgetMovePayee != null);
 
   TransactionFormState copyWith({
     TransactionType? type,
@@ -122,6 +132,7 @@ class TransactionFormState {
     bool? isSaving,
     String? error,
     bool clearError = false,
+    String? budgetMovePayee,
   }) {
     return TransactionFormState(
       type: type ?? this.type,
@@ -133,6 +144,7 @@ class TransactionFormState {
       note: note ?? this.note,
       isSaving: isSaving ?? this.isSaving,
       error: clearError ? null : (error ?? this.error),
+      budgetMovePayee: budgetMovePayee ?? this.budgetMovePayee,
     );
   }
 }

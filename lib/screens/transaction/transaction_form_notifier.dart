@@ -19,6 +19,8 @@ class TransactionFormNotifier extends StateNotifier<TransactionFormState> {
           date: DateTime.now(),
           time: DateTime.now(),
           postingRows: [PostingFormRow(rowId: _uuid.v4(), isSource: true)],
+          budgetMovePayee:
+              _ref.read(settingsProvider).valueOrNull?.budgetMovePayee,
         ));
 
   // ─────────────────────────────────────────────
@@ -26,15 +28,17 @@ class TransactionFormNotifier extends StateNotifier<TransactionFormState> {
   // ─────────────────────────────────────────────
 
   void setType(TransactionType type) {
-    final budgetMovePayee = type == TransactionType.budgetMove
-        ? _ref.read(settingsProvider).valueOrNull?.budgetMovePayee
-        : null;
+    final budgetMovePayee =
+        _ref.read(settingsProvider).valueOrNull?.budgetMovePayee;
 
     state = state.copyWith(
       type: type,
       postingRows: [PostingFormRow(rowId: _uuid.v4(), isSource: true)],
-      payeeNameRaw: budgetMovePayee ?? '',
+      payeeNameRaw: type == TransactionType.budgetMove
+          ? (budgetMovePayee ?? '')
+          : '',
       clearPayee: true,
+      budgetMovePayee: budgetMovePayee,
     );
   }
 
@@ -217,7 +221,11 @@ class TransactionFormNotifier extends StateNotifier<TransactionFormState> {
       final payeeDao = _ref.read(payeeDaoProvider);
 
       // Resolve or create payee
-      final payeeId = await _resolvePayeeId(payeeDao, savePayeeDefaults);
+      final payeeId = await _resolvePayeeId(payeeDao, savePayeeDefaults,
+          effectivePayeeName: effectivePayeeName);
+      final effectivePayeeName = state.payeeNameRaw.trim().isNotEmpty
+          ? state.payeeNameRaw.trim()
+          : (state.budgetMovePayee ?? '');
 
       // If editing, delete old postings and update the transaction row in place.
       // This preserves the original createdAt and transaction ID.
@@ -230,7 +238,7 @@ class TransactionFormNotifier extends StateNotifier<TransactionFormState> {
             date: Value(state.date),
             time: Value(state.time),
             payeeId: Value(payeeId),
-            payeeName: Value(state.payeeNameRaw.trim()),
+            payeeName: Value(effectivePayeeName),
             note: Value(state.note),
           ),
         );
@@ -243,7 +251,7 @@ class TransactionFormNotifier extends StateNotifier<TransactionFormState> {
             date: state.date,
             time: state.time,
             payeeId: Value(payeeId),
-            payeeName: state.payeeNameRaw.trim(),
+            payeeName: effectivePayeeName,
             note: Value(state.note),
             createdAt: now,
           ),
@@ -328,7 +336,8 @@ class TransactionFormNotifier extends StateNotifier<TransactionFormState> {
   // ─────────────────────────────────────────────
 
   Future<String?> _resolvePayeeId(
-      PayeeDao payeeDao, bool saveDefaults) async {
+      PayeeDao payeeDao, bool saveDefaults,
+      {String? effectivePayeeName}) async {
     if (state.payee != null) {
       if (saveDefaults) {
         // TODO: update payee default template from current posting rows
@@ -336,10 +345,13 @@ class TransactionFormNotifier extends StateNotifier<TransactionFormState> {
       return state.payee!.id;
     }
 
+    final name = effectivePayeeName?.trim() ?? state.payeeNameRaw.trim();
+    if (name.isEmpty) return null;
+
     // New payee — create a minimal record
     final id = _uuid.v4();
     await payeeDao.upsertPayee(
-      db.PayeesCompanion.insert(id: id, name: state.payeeNameRaw.trim()),
+      db.PayeesCompanion.insert(id: id, name: name),
     );
     return id;
   }
