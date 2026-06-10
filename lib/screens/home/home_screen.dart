@@ -208,7 +208,7 @@ final _transactionTotalProvider =
   // Sum non-mirror postings with positive amounts (the receiving side)
   return postings
       .where((p) => !p.isBudgetMirror && p.amountMilliunits > 0)
-      .fold(0, (sum, p) => sum + p.amountMilliunits);
+      .fold<int>(0, (sum, p) => sum + p.amountMilliunits);
 });
 
 class _SyncStatusIndicator extends StatelessWidget {
