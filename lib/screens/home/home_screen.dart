@@ -108,6 +108,8 @@ class _TransactionTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final totalAsync = ref.watch(_transactionTotalProvider(tx.id));
+
     return Dismissible(
       key: ValueKey(tx.id),
       direction: DismissDirection.endToStart,
@@ -125,6 +127,20 @@ class _TransactionTile extends ConsumerWidget {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Total amount
+            totalAsync.maybeWhen(
+              data: (total) => Text(
+                _formatAmount(total),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w500,
+                      color: total < 0
+                          ? Theme.of(context).colorScheme.error
+                          : Theme.of(context).colorScheme.primary,
+                    ),
+              ),
+              orElse: () => const SizedBox.shrink(),
+            ),
+            const SizedBox(width: 8),
             _SyncStatusIndicator(tx: tx),
             if (_isDesktop)
               IconButton(
@@ -171,7 +187,29 @@ class _TransactionTile extends ConsumerWidget {
     await ref.read(transactionDaoProvider).deletePostingsForTransaction(tx.id);
     await ref.read(transactionDaoProvider).deleteTransaction(tx.id);
   }
+
+  String _formatAmount(int milliunits) {
+    final isNegative = milliunits < 0;
+    final abs = milliunits.abs();
+    final dollars = abs ~/ 1000;
+    final cents = (abs % 1000) ~/ 10;
+    final sign = isNegative ? '-' : '';
+    return '\$$sign$dollars.${cents.toString().padLeft(2, '0')}';
+  }
 }
+
+/// Sums the positive (outflow from source) real postings for a transaction.
+/// Shows the meaningful "spend" amount rather than the net zero total.
+final _transactionTotalProvider =
+    FutureProvider.autoDispose.family<int, String>((ref, transactionId) async {
+  final postings = await ref
+      .read(transactionDaoProvider)
+      .postingsForTransaction(transactionId);
+  // Sum non-mirror postings with positive amounts (the receiving side)
+  return postings
+      .where((p) => !p.isBudgetMirror && p.amountMilliunits > 0)
+      .fold(0, (sum, p) => sum + p.amountMilliunits);
+});
 
 class _SyncStatusIndicator extends StatelessWidget {
   final TransactionRow tx;
