@@ -144,6 +144,10 @@ class SettingsNotifier extends StateNotifier<AsyncValue<AppSettings>> {
     load();
   }
 
+  /// Constructs with a pre-loaded value so the provider never starts loading.
+  SettingsNotifier.withInitial(this._service, AppSettings initial)
+      : super(AsyncValue.data(initial));
+
   Future<void> load() async {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() => _service.load());

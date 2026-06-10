@@ -18,12 +18,21 @@ void main() async {
     prefs,
   );
 
+  // Pre-load settings so settingsProvider never starts in a loading state.
+  final initialSettings = await settingsService.load();
+
   runApp(
     ProviderScope(
       overrides: [
         // Override the placeholder with the real database instance.
         databaseProvider.overrideWithValue(db),
         settingsServiceProvider.overrideWithValue(settingsService),
+        settingsProvider.overrideWith(
+          (ref) => SettingsNotifier.withInitial(
+            settingsService,
+            initialSettings,
+          ),
+        ),
       ],
       child: const DoubleEntryApp(),
     ),

@@ -225,6 +225,17 @@ class _UnlinkedAccountsBanner extends ConsumerWidget {
 
 extension _HomeScreenSync on HomeScreen {
   Future<void> _sync(BuildContext context, WidgetRef ref) async {
+    // Wait for settings to finish loading before checking configuration.
+    // The settings provider starts in AsyncValue.loading() and resolves
+    // asynchronously — reading repositories before it's ready returns null.
+    final settingsValue = ref.read(settingsProvider);
+    if (settingsValue.isLoading) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Loading settings, please try again.')),
+      );
+      return;
+    }
+
     final ynabSync = ref.read(ynabSyncRepositoryProvider);
     final ledgerSync = ref.read(ledgerSyncRepositoryProvider);
 
