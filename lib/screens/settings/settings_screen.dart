@@ -28,6 +28,7 @@ class SettingsScreen extends ConsumerWidget {
             _YnabBudgetTile(
               token: settings.ynabToken,
               budgetId: settings.ynabBudgetId,
+              budgetName: settings.ynabBudgetName,
             ),
 
             // ── Ledger ────────────────────────────────────
@@ -196,17 +197,25 @@ class _YnabTokenTile extends ConsumerWidget {
 class _YnabBudgetTile extends ConsumerWidget {
   final String? token;
   final String? budgetId;
+  final String? budgetName;
 
-  const _YnabBudgetTile({required this.token, required this.budgetId});
+  const _YnabBudgetTile({
+    required this.token,
+    required this.budgetId,
+    required this.budgetName,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isEnabled = token != null;
+    final subtitle = budgetName != null
+        ? budgetName!
+        : (budgetId != null ? budgetId! : 'Not selected');
 
     return ListTile(
       leading: const Icon(Icons.account_balance_wallet_outlined),
       title: const Text('Budget'),
-      subtitle: Text(budgetId != null ? budgetId! : 'Not selected'),
+      subtitle: Text(subtitle),
       trailing: const Icon(Icons.chevron_right),
       enabled: isEnabled,
       onTap: isEnabled ? () => _showBudgetPicker(context, ref) : null,
@@ -247,7 +256,7 @@ class _YnabBudgetTile extends ConsumerWidget {
 
       // If only one budget, select it automatically
       if (budgets.length == 1) {
-        await notifier.setYnabBudgetId(budgets.first.id);
+        await notifier.setYnabBudget(budgets.first.id, budgets.first.name);
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Selected: ${budgets.first.name}')),
@@ -274,7 +283,7 @@ class _YnabBudgetTile extends ConsumerWidget {
                   subtitle: Text(budget.id),
                   selected: budget.id == budgetId,
                   onTap: () async {
-                    await notifier.setYnabBudgetId(budget.id);
+                    await notifier.setYnabBudget(budget.id, budget.name);
                     if (context.mounted) Navigator.pop(context);
                   },
                 );

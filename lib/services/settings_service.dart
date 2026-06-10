@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 const _keyYnabToken = 'ynab_token';
 const _keyYnabBudgetId = 'ynab_budget_id';
+const _keyYnabBudgetName = 'ynab_budget_name';
 const _keyLedgerOutputPath = 'ledger_output_path';
 const _keyBudgetMovePayee = 'budget_move_payee';
 
@@ -23,6 +24,9 @@ class AppSettings {
   /// Selected YNAB budget ID. Null if not yet configured.
   final String? ynabBudgetId;
 
+  /// Selected YNAB budget name, saved alongside the ID for display.
+  final String? ynabBudgetName;
+
   /// Path to the Ledger output file, e.g. "/home/user/Documents/mobile.ledger"
   final String? ledgerOutputPath;
 
@@ -33,6 +37,7 @@ class AppSettings {
   const AppSettings({
     this.ynabToken,
     this.ynabBudgetId,
+    this.ynabBudgetName,
     this.ledgerOutputPath,
     this.budgetMovePayee,
   });
@@ -44,6 +49,7 @@ class AppSettings {
   AppSettings copyWith({
     String? ynabToken,
     String? ynabBudgetId,
+    String? ynabBudgetName,
     String? ledgerOutputPath,
     String? budgetMovePayee,
     bool clearYnabToken = false,
@@ -55,6 +61,7 @@ class AppSettings {
       ynabToken: clearYnabToken ? null : (ynabToken ?? this.ynabToken),
       ynabBudgetId:
           clearYnabBudgetId ? null : (ynabBudgetId ?? this.ynabBudgetId),
+      ynabBudgetName: ynabBudgetName ?? this.ynabBudgetName,
       ledgerOutputPath: clearLedgerOutputPath
           ? null
           : (ledgerOutputPath ?? this.ledgerOutputPath),
@@ -84,6 +91,7 @@ class SettingsService {
     return AppSettings(
       ynabToken: token?.trim(),
       ynabBudgetId: _prefs.getString(_keyYnabBudgetId),
+      ynabBudgetName: _prefs.getString(_keyYnabBudgetName),
       ledgerOutputPath: _prefs.getString(_keyLedgerOutputPath),
       budgetMovePayee: _prefs.getString(_keyBudgetMovePayee),
     );
@@ -97,6 +105,11 @@ class SettingsService {
 
   Future<void> setYnabBudgetId(String budgetId) =>
       _prefs.setString(_keyYnabBudgetId, budgetId);
+
+  Future<void> setYnabBudget(String budgetId, String budgetName) async {
+    await _prefs.setString(_keyYnabBudgetId, budgetId);
+    await _prefs.setString(_keyYnabBudgetName, budgetName);
+  }
 
   Future<void> setLedgerOutputPath(String path) =>
       _prefs.setString(_keyLedgerOutputPath, path);
@@ -148,6 +161,11 @@ class SettingsNotifier extends StateNotifier<AsyncValue<AppSettings>> {
 
   Future<void> setYnabBudgetId(String budgetId) async {
     await _service.setYnabBudgetId(budgetId);
+    await load();
+  }
+
+  Future<void> setYnabBudget(String budgetId, String budgetName) async {
+    await _service.setYnabBudget(budgetId, budgetName);
     await load();
   }
 
