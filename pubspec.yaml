@@ -36,6 +36,12 @@ dependencies:
   uuid: ^4.4.0                   # For generating local IDs
   intl: ^0.19.0                  # Date formatting
 
+  # Git integration (Android)
+  git2dart: ^0.5.0               # libgit2 bindings for Dart
+
+  # SSH key generation
+  cryptography: ^2.7.0           # Ed25519 key pair generation
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
