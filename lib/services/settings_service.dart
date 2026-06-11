@@ -12,6 +12,11 @@ const _keyYnabBudgetId = 'ynab_budget_id';
 const _keyYnabBudgetName = 'ynab_budget_name';
 const _keyLedgerOutputPath = 'ledger_output_path';
 const _keyBudgetMovePayee = 'budget_move_payee';
+const _keyGitRemoteUrl = 'git_remote_url';
+const _keyGitBranch = 'git_branch';
+const _keyGitTargetFile = 'git_target_file';
+const _keyGitPrivateKey = 'git_private_key'; // stored in secure storage
+const _keyGitPublicKey = 'git_public_key';   // non-sensitive, prefs
 
 // ─────────────────────────────────────────────
 // Settings model
@@ -35,16 +40,40 @@ class AppSettings {
   /// Defaults to null (user must enter manually if not set).
   final String? budgetMovePayee;
 
+  /// Git remote URL, e.g. git@gitea.example.com:user/ledger.git
+  final String? gitRemoteUrl;
+
+  /// Git branch the app manages, e.g. mobile-sync
+  final String? gitBranch;
+
+  /// Path to the ledger file within the repo, e.g. mobile.ledger
+  final String? gitTargetFile;
+
+  /// The generated public key (OpenSSH format), for display/copying to Gitea.
+  final String? gitPublicKey;
+
+  /// Whether the private key has been generated (key itself is in secure storage).
+  final bool gitPrivateKeyExists;
+
   const AppSettings({
     this.ynabToken,
     this.ynabBudgetId,
     this.ynabBudgetName,
     this.ledgerOutputPath,
     this.budgetMovePayee,
+    this.gitRemoteUrl,
+    this.gitBranch,
+    this.gitTargetFile,
+    this.gitPublicKey,
+    this.gitPrivateKeyExists = false,
   });
 
   bool get isYnabConfigured => ynabToken != null && ynabBudgetId != null;
   bool get isLedgerConfigured => ledgerOutputPath != null;
+  bool get isGitConfigured =>
+      gitRemoteUrl != null &&
+      gitBranch != null &&
+      gitPrivateKeyExists;
   bool get isFullyConfigured => isYnabConfigured && isLedgerConfigured;
 
   AppSettings copyWith({
@@ -53,6 +82,11 @@ class AppSettings {
     String? ynabBudgetName,
     String? ledgerOutputPath,
     String? budgetMovePayee,
+    String? gitRemoteUrl,
+    String? gitBranch,
+    String? gitTargetFile,
+    String? gitPublicKey,
+    bool? gitPrivateKeyExists,
     bool clearYnabToken = false,
     bool clearYnabBudgetId = false,
     bool clearLedgerOutputPath = false,
@@ -69,6 +103,11 @@ class AppSettings {
       budgetMovePayee: clearBudgetMovePayee
           ? null
           : (budgetMovePayee ?? this.budgetMovePayee),
+      gitRemoteUrl: gitRemoteUrl ?? this.gitRemoteUrl,
+      gitBranch: gitBranch ?? this.gitBranch,
+      gitTargetFile: gitTargetFile ?? this.gitTargetFile,
+      gitPublicKey: gitPublicKey ?? this.gitPublicKey,
+      gitPrivateKeyExists: gitPrivateKeyExists ?? this.gitPrivateKeyExists,
     );
   }
 }
@@ -89,14 +128,40 @@ class SettingsService {
   /// Loads all settings into an [AppSettings] snapshot.
   Future<AppSettings> load() async {
     final token = await _secure.read(key: _keyYnabToken);
+    final privateKey = await _secure.read(key: _keyGitPrivateKey);
     return AppSettings(
       ynabToken: token?.trim(),
       ynabBudgetId: _prefs.getString(_keyYnabBudgetId),
       ynabBudgetName: _prefs.getString(_keyYnabBudgetName),
       ledgerOutputPath: _prefs.getString(_keyLedgerOutputPath),
       budgetMovePayee: _prefs.getString(_keyBudgetMovePayee),
+      gitRemoteUrl: _prefs.getString(_keyGitRemoteUrl),
+      gitBranch: _prefs.getString(_keyGitBranch),
+      gitTargetFile: _prefs.getString(_keyGitTargetFile),
+      gitPublicKey: _prefs.getString(_keyGitPublicKey),
+      gitPrivateKeyExists: privateKey != null,
     );
   }
+
+  Future<String?> loadGitPrivateKey() =>
+      _secure.read(key: _keyGitPrivateKey);
+
+  Future<void> saveGitKeyPair({
+    required String privateKeyPem,
+    required String publicKeyOpenSsh,
+  }) async {
+    await _secure.write(key: _keyGitPrivateKey, value: privateKeyPem);
+    await _prefs.setString(_keyGitPublicKey, publicKeyOpenSsh);
+  }
+
+  Future<void> setGitRemoteUrl(String url) =>
+      _prefs.setString(_keyGitRemoteUrl, url);
+
+  Future<void> setGitBranch(String branch) =>
+      _prefs.setString(_keyGitBranch, branch);
+
+  Future<void> setGitTargetFile(String file) =>
+      _prefs.setString(_keyGitTargetFile, file);
 
   Future<void> setYnabToken(String token) =>
       _secure.write(key: _keyYnabToken, value: token.trim());
@@ -190,4 +255,32 @@ class SettingsNotifier extends StateNotifier<AsyncValue<AppSettings>> {
     await _service.setBudgetMovePayee(payee);
     await load();
   }
+
+  Future<void> saveGitKeyPair({
+    required String privateKeyPem,
+    required String publicKeyOpenSsh,
+  }) async {
+    await _service.saveGitKeyPair(
+      privateKeyPem: privateKeyPem,
+      publicKeyOpenSsh: publicKeyOpenSsh,
+    );
+    await load();
+  }
+
+  Future<void> setGitRemoteUrl(String url) async {
+    await _service.setGitRemoteUrl(url);
+    await load();
+  }
+
+  Future<void> setGitBranch(String branch) async {
+    await _service.setGitBranch(branch);
+    await load();
+  }
+
+  Future<void> setGitTargetFile(String file) async {
+    await _service.setGitTargetFile(file);
+    await load();
+  }
+
+  Future<String?> loadGitPrivateKey() => _service.loadGitPrivateKey();
 }
