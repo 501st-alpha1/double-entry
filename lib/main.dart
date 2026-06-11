@@ -30,6 +30,7 @@ void main() async {
         settingsProvider.overrideWith(
           (ref) => SettingsNotifier.withInitial(
             settingsService,
+            ref,
             initialSettings,
           ),
         ),

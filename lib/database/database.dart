@@ -268,6 +268,13 @@ class AccountDao {
         .watch();
   }
 
+  Future<void> clearAllYnabLinks() =>
+      _db.update(_db.accounts).write(const AccountsCompanion(
+        ynabId: Value(null),
+        ynabName: Value(null),
+        ynabTransferPayeeId: Value(null),
+      ));
+
   Future<void> rename(String id, String newLedgerName) =>
       (_db.update(_db.accounts)..where((a) => a.id.equals(id)))
           .write(AccountsCompanion(ledgerName: Value(newLedgerName)));

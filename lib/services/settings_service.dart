@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../database/dao_providers.dart';
 
 // ─────────────────────────────────────────────
 // Keys
@@ -134,18 +135,19 @@ final settingsServiceProvider = Provider<SettingsService>((ref) {
 /// Use [settingsProvider.notifier] to trigger a reload after saving.
 final settingsProvider =
     StateNotifierProvider<SettingsNotifier, AsyncValue<AppSettings>>((ref) {
-  return SettingsNotifier(ref.watch(settingsServiceProvider));
+  return SettingsNotifier(ref.watch(settingsServiceProvider), ref);
 });
 
 class SettingsNotifier extends StateNotifier<AsyncValue<AppSettings>> {
   final SettingsService _service;
+  final Ref _ref;
 
-  SettingsNotifier(this._service) : super(const AsyncValue.loading()) {
+  SettingsNotifier(this._service, this._ref) : super(const AsyncValue.loading()) {
     load();
   }
 
   /// Constructs with a pre-loaded value so the provider never starts loading.
-  SettingsNotifier.withInitial(this._service, AppSettings initial)
+  SettingsNotifier.withInitial(this._service, this._ref, AppSettings initial)
       : super(AsyncValue.data(initial));
 
   Future<void> load() async {
@@ -169,6 +171,12 @@ class SettingsNotifier extends StateNotifier<AsyncValue<AppSettings>> {
   }
 
   Future<void> setYnabBudget(String budgetId, String budgetName) async {
+    // If the budget is changing, clear all account YNAB links since they
+    // are budget-specific and will no longer be valid.
+    final currentId = state.valueOrNull?.ynabBudgetId;
+    if (currentId != null && currentId != budgetId) {
+      await _ref.read(accountDaoProvider).clearAllYnabLinks();
+    }
     await _service.setYnabBudget(budgetId, budgetName);
     await load();
   }
