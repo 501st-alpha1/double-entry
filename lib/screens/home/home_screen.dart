@@ -6,6 +6,7 @@ import '../../database/dao_providers.dart';
 import '../../database/database.dart';
 import '../../repositories/ynab/ynab_sync_repository.dart';
 import '../../repositories/ledger/ledger_sync_repository.dart';
+import '../../repositories/git/git_sync_repository.dart';
 import '../../routing/router.dart';
 import '../../services/settings_service.dart';
 import '../../widgets/ynab_mapping_sheet.dart';
@@ -266,6 +267,7 @@ extension _HomeScreenSync on HomeScreen {
   Future<void> _sync(BuildContext context, WidgetRef ref) async {
     final ynabSync = ref.read(ynabSyncRepositoryProvider);
     final ledgerSync = ref.read(ledgerSyncRepositoryProvider);
+    final gitSyncAsync = ref.read(gitSyncProvider);
 
     if (ynabSync == null && ledgerSync == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -293,6 +295,8 @@ extension _HomeScreenSync on HomeScreen {
 
     int ynabSucceeded = 0, ynabFailed = 0;
     int ledgerSucceeded = 0, ledgerFailed = 0;
+    bool gitSuccess = false;
+    String? gitError;
 
     try {
       if (ynabSync != null) {
@@ -314,6 +318,22 @@ extension _HomeScreenSync on HomeScreen {
       ledgerFailed++;
     }
 
+    // Git push — only on Android, only if ledger sync wrote something
+    if (!Platform.isLinux && !Platform.isMacOS && !Platform.isWindows) {
+      try {
+        final gitRepo = await gitSyncAsync.future;
+        if (gitRepo != null && ledgerSucceeded > 0) {
+          await gitRepo.commitAndPush(
+            authorName: 'Double Entry',
+            authorEmail: 'double_entry@localhost',
+          );
+          gitSuccess = true;
+        }
+      } catch (e) {
+        gitError = e.toString();
+      }
+    }
+
     if (!context.mounted) return;
 
     final totalFailed = ynabFailed + ledgerFailed;
@@ -326,13 +346,20 @@ extension _HomeScreenSync on HomeScreen {
       parts.add('Ledger: $ledgerSucceeded synced'
           '${ledgerFailed > 0 ? ', $ledgerFailed failed' : ''}');
     }
+    if (gitError != null) {
+      parts.add('Git: failed');
+    } else if (gitSuccess) {
+      parts.add('Git: pushed');
+    }
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(parts.join(' · ')),
-        backgroundColor:
-            totalFailed > 0 ? Theme.of(context).colorScheme.error : null,
-        duration: Duration(seconds: totalFailed > 0 ? 6 : 3),
+        backgroundColor: (totalFailed > 0 || gitError != null)
+            ? Theme.of(context).colorScheme.error
+            : null,
+        duration:
+            Duration(seconds: (totalFailed > 0 || gitError != null) ? 6 : 3),
       ),
     );
   }

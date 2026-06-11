@@ -54,30 +54,17 @@ class GitSyncRepository {
     await _clone();
   }
 
-  /// Appends [content] to the target file, commits, and pushes.
+  /// Commits the current state of the target file and pushes to remote.
+  /// Call this after the Ledger file has already been written by LedgerSyncRepository.
   Future<void> commitAndPush({
-    required String content,
     required String authorName,
     required String authorEmail,
   }) async {
     await ensureCloned();
     final repoPath = await localRepoPath();
 
-    // Pull latest before committing to minimise conflicts
+    // Pull latest before committing
     await _pull(repoPath);
-
-    // Append content to target file
-    final filePath = p.join(repoPath, targetFile);
-    final file = File(filePath);
-    String prefix = '';
-    if (await file.exists()) {
-      final existing = await file.readAsString();
-      if (existing.isNotEmpty && !existing.endsWith('\n\n')) {
-        prefix = existing.endsWith('\n') ? '\n' : '\n\n';
-      }
-    }
-    await file.writeAsString('$prefix$content',
-        mode: FileMode.append, flush: true);
 
     // Stage, commit, push
     final repo = Repository.open(repoPath);

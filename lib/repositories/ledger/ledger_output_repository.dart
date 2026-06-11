@@ -132,11 +132,44 @@ class GitLedgerOutputRepository implements LedgerOutputRepository {
 // ─────────────────────────────────────────────
 
 /// Provides the configured [LedgerOutputRepository].
-/// Returns null if no output path is configured.
+/// On Android with Git configured, writes to the git repo working directory.
+/// Otherwise writes to the configured output path.
 final ledgerOutputRepositoryProvider =
     Provider<LedgerOutputRepository?>((ref) {
   final settings = ref.watch(settingsProvider).valueOrNull;
-  final path = settings?.ledgerOutputPath;
+  if (settings == null) return null;
+
+  // On Android with Git configured, use git repo path + target file
+  final isDesktop = Platform.isLinux || Platform.isMacOS || Platform.isWindows;
+  if (!isDesktop && settings.isGitConfigured) {
+    // Path will be resolved at write time using git repo location
+    final targetFile = settings.gitTargetFile ?? 'mobile.ledger';
+    return _GitPathLedgerOutputRepository(targetFile: targetFile);
+  }
+
+  final path = settings.ledgerOutputPath;
   if (path == null) return null;
   return LocalFileLedgerOutputRepository(outputPath: path);
 });
+
+/// Writes to the git repo working directory, resolved at write time.
+class _GitPathLedgerOutputRepository implements LedgerOutputRepository {
+  final String targetFile;
+  final LedgerFormatter formatter;
+
+  _GitPathLedgerOutputRepository({
+    required this.targetFile,
+    this.formatter = const LedgerFormatter(),
+  });
+
+  @override
+  Future<void> write(List<Transaction> transactions) async {
+    if (transactions.isEmpty) return;
+    final repoPath = await GitSyncRepository.localRepoPath();
+    final delegate = LocalFileLedgerOutputRepository(
+      outputPath: p.join(repoPath, targetFile),
+      formatter: formatter,
+    );
+    await delegate.write(transactions);
+  }
+}

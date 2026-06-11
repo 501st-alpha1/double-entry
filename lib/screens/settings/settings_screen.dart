@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import '../../repositories/ynab/ynab_client.dart';
 import '../../routing/router.dart';
 import '../../services/settings_service.dart';
+import '../../services/ssh_key_service.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -55,6 +56,17 @@ class SettingsScreen extends ConsumerWidget {
               trailing: const Icon(Icons.chevron_right),
               onTap: () => context.push(Routes.payees),
             ),
+
+            // ── Git (Android only) ────────────────────────
+            if (!Platform.isLinux &&
+                !Platform.isMacOS &&
+                !Platform.isWindows) ...[
+              const _SectionHeader(title: 'Git Sync (Android)'),
+              _GitRemoteUrlTile(url: settings.gitRemoteUrl),
+              _GitBranchTile(branch: settings.gitBranch),
+              _GitTargetFileTile(file: settings.gitTargetFile),
+              _GitSshKeyTile(settings: settings),
+            ],
 
             // ── Status ────────────────────────────────────
             const _SectionHeader(title: 'Status'),
@@ -563,6 +575,313 @@ class _AndroidLedgerPickerDialogState
         TextButton(
           onPressed: () => Navigator.pop(context),
           child: const Text('Cancel'),
+        ),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+// Git settings tiles
+// ─────────────────────────────────────────────
+
+class _GitRemoteUrlTile extends ConsumerWidget {
+  final String? url;
+  const _GitRemoteUrlTile({required this.url});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return ListTile(
+      leading: const Icon(Icons.cloud_outlined),
+      title: const Text('Remote URL'),
+      subtitle: Text(url ?? 'Not set'),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () => _showDialog(context, ref),
+    );
+  }
+
+  Future<void> _showDialog(BuildContext context, WidgetRef ref) async {
+    final controller = TextEditingController(text: url);
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Git Remote URL'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('SSH remote URL for your Gitea repository.'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              decoration: const InputDecoration(
+                labelText: 'Remote URL',
+                hintText: 'git@gitea.example.com:user/ledger.git',
+              ),
+              autocorrect: false,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              final value = controller.text.trim();
+              if (value.isNotEmpty) {
+                await ref.read(settingsProvider.notifier).setGitRemoteUrl(value);
+              }
+              if (context.mounted) Navigator.pop(context);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GitBranchTile extends ConsumerWidget {
+  final String? branch;
+  const _GitBranchTile({required this.branch});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return ListTile(
+      leading: const Icon(Icons.alt_route_outlined),
+      title: const Text('Branch'),
+      subtitle: Text(branch ?? 'mobile-sync (default)'),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () => _showDialog(context, ref),
+    );
+  }
+
+  Future<void> _showDialog(BuildContext context, WidgetRef ref) async {
+    final controller = TextEditingController(text: branch ?? 'mobile-sync');
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Git Branch'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            labelText: 'Branch name',
+            hintText: 'mobile-sync',
+          ),
+          autocorrect: false,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              final value = controller.text.trim();
+              if (value.isNotEmpty) {
+                await ref.read(settingsProvider.notifier).setGitBranch(value);
+              }
+              if (context.mounted) Navigator.pop(context);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GitTargetFileTile extends ConsumerWidget {
+  final String? file;
+  const _GitTargetFileTile({required this.file});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return ListTile(
+      leading: const Icon(Icons.description_outlined),
+      title: const Text('Target File'),
+      subtitle: Text(file ?? 'mobile.ledger (default)'),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () => _showDialog(context, ref),
+    );
+  }
+
+  Future<void> _showDialog(BuildContext context, WidgetRef ref) async {
+    final controller = TextEditingController(text: file ?? 'mobile.ledger');
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Target File'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            labelText: 'File path in repo',
+            hintText: 'mobile.ledger',
+          ),
+          autocorrect: false,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              final value = controller.text.trim();
+              if (value.isNotEmpty) {
+                await ref.read(settingsProvider.notifier).setGitTargetFile(value);
+              }
+              if (context.mounted) Navigator.pop(context);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GitSshKeyTile extends ConsumerWidget {
+  final AppSettings settings;
+  const _GitSshKeyTile({required this.settings});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final hasKey = settings.gitPrivateKeyExists;
+    return ListTile(
+      leading: Icon(
+        Icons.vpn_key_outlined,
+        color: hasKey ? Theme.of(context).colorScheme.primary : null,
+      ),
+      title: const Text('SSH Key'),
+      subtitle: Text(hasKey
+          ? 'Key generated — add public key to Gitea'
+          : 'Not generated'),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () => _showKeyDialog(context, ref),
+    );
+  }
+
+  Future<void> _showKeyDialog(BuildContext context, WidgetRef ref) async {
+    if (!settings.gitPrivateKeyExists) {
+      // Generate a new key pair
+      await showDialog(
+        context: context,
+        builder: (context) => _GenerateKeyDialog(),
+      );
+    } else {
+      // Show public key for copying
+      await showDialog(
+        context: context,
+        builder: (context) => _ShowPublicKeyDialog(
+          publicKey: settings.gitPublicKey ?? '',
+        ),
+      );
+    }
+  }
+}
+
+class _GenerateKeyDialog extends ConsumerStatefulWidget {
+  @override
+  ConsumerState<_GenerateKeyDialog> createState() =>
+      _GenerateKeyDialogState();
+}
+
+class _GenerateKeyDialogState extends ConsumerState<_GenerateKeyDialog> {
+  bool _generating = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Generate SSH Key'),
+      content: _generating
+          ? const Row(
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(width: 16),
+                Text('Generating key pair...'),
+              ],
+            )
+          : const Text(
+              'Generate a new Ed25519 SSH key pair. '
+              'You will then add the public key to your Gitea account.',
+            ),
+      actions: [
+        TextButton(
+          onPressed: _generating ? null : () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _generating ? null : () => _generate(context),
+          child: const Text('Generate'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _generate(BuildContext context) async {
+    setState(() => _generating = true);
+    try {
+      final keyPair = await SshKeyService.generateKeyPair();
+      await ref.read(settingsProvider.notifier).saveGitKeyPair(
+            privateKeyPem: keyPair.privateKeyPem,
+            publicKeyOpenSsh: keyPair.publicKeyOpenSsh,
+          );
+      if (context.mounted) {
+        Navigator.pop(context);
+        await showDialog(
+          context: context,
+          builder: (_) => _ShowPublicKeyDialog(
+              publicKey: keyPair.publicKeyOpenSsh),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to generate key: $e')),
+        );
+      }
+    }
+  }
+}
+
+class _ShowPublicKeyDialog extends StatelessWidget {
+  final String publicKey;
+  const _ShowPublicKeyDialog({required this.publicKey});
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('SSH Public Key'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Add this public key to your Gitea account under '
+            'Settings → SSH/GPG Keys.',
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceVariant,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: SelectableText(
+              publicKey,
+              style: const TextStyle(fontSize: 11, fontFamily: 'monospace'),
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Done'),
         ),
       ],
     );
