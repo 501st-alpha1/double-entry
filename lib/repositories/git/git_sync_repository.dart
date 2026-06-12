@@ -81,11 +81,11 @@ class GitSyncRepository {
   // Private helpers
   // ─────────────────────────────────────────────
 
-  Credentials get _credentials => Credentials.keypairFromMemory(
+  Credentials get _credentials => KeypairFromMemory(
         username: 'git',
-        pubkey: publicKeyOpenSsh,
-        privkey: privateKeyPem,
-        passphrase: '',
+        pubKey: publicKeyOpenSsh,
+        privateKey: privateKeyPem,
+        passPhrase: '',
       );
 
   Future<void> _clone() async {
