@@ -92,50 +92,69 @@ class GitSyncRepository {
     final repoPath = await localRepoPath();
     await Directory(repoPath).create(recursive: true);
 
+    // Use init + remote add + fetch instead of Repository.clone so we can
+    // specify a single-branch refspec and avoid downloading the entire repo.
+    final repo = Repository.init(path: repoPath);
     try {
-      Repository.clone(
+      final remote = Remote.create(
+        repo: repo,
+        name: 'origin',
         url: remoteUrl,
-        localPath: repoPath,
-        callbacks: RemoteCallbacks(
-          credentials: (url, username, types) => _credentials,
-        ),
-        checkoutBranch: branch,
       );
-    } on LibGit2Error catch (e) {
-      // Branch doesn't exist on remote — init a local orphan branch
-      if (e.message.contains('reference') ||
-          e.message.contains('not found') ||
-          e.message.contains("Remote branch '$branch' not found")) {
-        await _initOrphanBranch(repoPath);
-      } else {
-        rethrow;
+
+      try {
+        remote.fetch(
+          refspecs: ['+refs/heads/$branch:refs/remotes/origin/$branch'],
+          callbacks: RemoteCallbacks(
+            credentials: (url, username, types) => _credentials,
+          ),
+        );
+      } on LibGit2Error catch (e) {
+        // Branch doesn't exist on remote yet — that's fine, leave repo empty
+        if (!e.message.contains('not found') &&
+            !e.message.contains('Could not find remote branch')) {
+          rethrow;
+        }
+        // Orphan branch — nothing to check out, leave as empty repo
+        repo.setHead('refs/heads/$branch');
+        remote.free();
+        return;
       }
+
+      // Set HEAD to track our branch
+      repo.setHead('refs/heads/$branch');
+
+      // Check out the branch from the fetched remote ref
+      try {
+        final remoteRef = Reference.lookup(
+            repo: repo, name: 'refs/remotes/origin/$branch');
+        final commit = Commit.lookup(repo: repo, oid: remoteRef.target);
+
+        // Create local branch pointing to remote commit
+        Branch.create(
+          repo: repo,
+          name: branch,
+          commit: commit,
+          force: true,
+        );
+
+        // Checkout working tree
+        repo.checkout(refName: 'refs/heads/$branch');
+
+        remoteRef.free();
+        commit.free();
+      } on LibGit2Error {
+        // Remote branch was empty — leave as orphan
+      }
+
+      remote.free();
+    } finally {
+      repo.free();
     }
   }
 
   Future<void> _initOrphanBranch(String repoPath) async {
-    // Clone the default branch first to get a valid repo, then create
-    // an orphan branch with no history.
-    Repository.clone(
-      url: remoteUrl,
-      localPath: repoPath,
-      callbacks: RemoteCallbacks(
-        credentials: (url, username, types) => _credentials,
-      ),
-    );
-
-    final repo = Repository.open(repoPath);
-    try {
-      // Create orphan branch: check out new unborn branch
-      repo.setHead('refs/heads/$branch');
-      // Remove all staged files so the branch starts empty
-      final index = repo.index;
-      index.clear();
-      index.write();
-      index.free();
-    } finally {
-      repo.free();
-    }
+    // No-op — _clone now handles missing branches as orphans directly
   }
 
   Future<void> _pull(String repoPath) async {
