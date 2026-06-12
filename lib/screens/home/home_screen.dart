@@ -321,7 +321,7 @@ extension _HomeScreenSync on HomeScreen {
     // Git push — only on Android, only if ledger sync wrote something
     if (!Platform.isLinux && !Platform.isMacOS && !Platform.isWindows) {
       try {
-        final gitRepo = await gitSyncAsync.future;
+        final gitRepo = await gitSyncAsync.value;
         if (gitRepo != null && ledgerSucceeded > 0) {
           await gitRepo.commitAndPush(
             authorName: 'Double Entry',
