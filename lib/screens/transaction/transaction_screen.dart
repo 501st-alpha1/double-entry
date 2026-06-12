@@ -115,7 +115,10 @@ class _TransactionScreenState extends ConsumerState<TransactionScreen> {
             const SizedBox(height: 24),
 
             // Save buttons
-            _SaveButtons(isEditing: isEditing),
+            _SaveButtons(
+              isEditing: isEditing,
+              editTransactionId: widget.editTransactionId,
+            ),
           ],
         ),
       ),
@@ -578,8 +581,9 @@ class _NoteField extends ConsumerWidget {
 
 class _SaveButtons extends ConsumerWidget {
   final bool isEditing;
+  final String? editTransactionId;
 
-  const _SaveButtons({required this.isEditing});
+  const _SaveButtons({required this.isEditing, this.editTransactionId});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -617,7 +621,7 @@ class _SaveButtons extends ConsumerWidget {
   Future<void> _save(BuildContext context, WidgetRef ref,
       {required bool saveAndNew}) async {
     final notifier = ref.read(transactionFormProvider.notifier);
-    final success = await notifier.save();
+    final success = await notifier.save(existingId: editTransactionId);
     if (success && context.mounted) {
       if (saveAndNew) {
         context.pop();
