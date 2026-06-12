@@ -81,7 +81,7 @@ class GitSyncRepository {
   // Private helpers
   // ─────────────────────────────────────────────
 
-  Credentials get _credentials => KeypairFromMemory(
+  KeypairFromMemory get _credentials => KeypairFromMemory(
         username: 'git',
         pubKey: publicKeyOpenSsh,
         privateKey: privateKeyPem,
@@ -105,11 +105,11 @@ class GitSyncRepository {
       try {
         remote.fetch(
           refspecs: ['+refs/heads/$branch:refs/remotes/origin/$branch'],
-          callbacks: RemoteCallbacks(
-            credentials: (url, username, types) => _credentials,
+          callbacks: Callbacks(
+            credentials: _credentials,
           ),
         );
-      } on LibGit2Error catch (e) {
+      } on LibGit2Exception catch (e) {
         // Branch doesn't exist on remote yet — that's fine, leave repo empty
         if (!e.message.contains('not found') &&
             !e.message.contains('Could not find remote branch')) {
@@ -143,7 +143,7 @@ class GitSyncRepository {
 
         remoteRef.free();
         commit.free();
-      } on LibGit2Error {
+      } on LibGit2Exception {
         // Remote branch was empty — leave as orphan
       }
 
@@ -163,8 +163,8 @@ class GitSyncRepository {
       final remote = Remote.lookup(repo: repo, name: 'origin');
       remote.fetch(
         refspecs: ['+refs/heads/$branch:refs/remotes/origin/$branch'],
-        callbacks: RemoteCallbacks(
-          credentials: (url, username, types) => _credentials,
+        callbacks: Callbacks(
+          credentials: _credentials,
         ),
       );
 
@@ -177,7 +177,7 @@ class GitSyncRepository {
         repo.mergeFastForward(commit: remoteCommit, setHead: true);
         remoteRef.free();
         remoteCommit.free();
-      } on LibGit2Error {
+      } on LibGit2Exception {
         // Already up to date or nothing to fast-forward — fine
       }
 
@@ -227,7 +227,7 @@ class GitSyncRepository {
       final head = repo.head;
       parent = Commit.lookup(repo: repo, oid: head.target);
       head.free();
-    } on LibGit2Error {
+    } on LibGit2Exception {
       // No commits yet (orphan branch) — that's fine
     }
 
@@ -250,8 +250,8 @@ class GitSyncRepository {
     final remote = Remote.lookup(repo: repo, name: 'origin');
     remote.push(
       refspecs: ['refs/heads/$branch:refs/heads/$branch'],
-      callbacks: RemoteCallbacks(
-        credentials: (url, username, types) => _credentials,
+      callbacks: Callbacks(
+        credentials: _credentials,
       ),
     );
     remote.free();
