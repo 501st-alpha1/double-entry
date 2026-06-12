@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:drift/drift.dart';
 
 part 'database.g.dart';
@@ -252,10 +253,34 @@ class AccountDao {
     return accountQuery.get();
   }
 
-  Stream<List<AccountRow>> watchUnlinkedAccountsInPendingTransactions() async* {
-    // Re-run whenever accounts or postings change
-    yield* _db.select(_db.accounts).watch().asyncMap((_) =>
-        unlinkedAccountsInPendingTransactions());
+  Stream<List<AccountRow>> watchUnlinkedAccountsInPendingTransactions() {
+    // Re-run whenever postings or accounts change.
+    // Postings change on transaction add/delete; accounts change when
+    // YNAB links are added.
+    late StreamController<List<AccountRow>> controller;
+    StreamSubscription? postingsSub, accountsSub;
+
+    Future<void> rerun() async {
+      if (!controller.isClosed) {
+        controller.add(await unlinkedAccountsInPendingTransactions());
+      }
+    }
+
+    controller = StreamController<List<AccountRow>>(
+      onListen: () {
+        rerun();
+        postingsSub =
+            _db.select(_db.postings).watch().listen((_) => rerun());
+        accountsSub =
+            _db.select(_db.accounts).watch().listen((_) => rerun());
+      },
+      onCancel: () {
+        postingsSub?.cancel();
+        accountsSub?.cancel();
+      },
+    );
+
+    return controller.stream;
   }
 
   Stream<List<AccountRow>> watchSearch(String query) {
