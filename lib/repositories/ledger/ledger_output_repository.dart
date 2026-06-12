@@ -4,6 +4,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import '../../models/models.dart';
 import '../../services/settings_service.dart';
+import '../git/git_sync_repository.dart';
 import 'ledger_formatter.dart';
 
 // ─────────────────────────────────────────────
