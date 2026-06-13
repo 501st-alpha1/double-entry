@@ -107,8 +107,14 @@ class GitSyncRepository {
           refspecs: ['+refs/heads/$branch:refs/remotes/origin/$branch'],
           callbacks: Callbacks(credentials: _credentials),
         );
-      } on Git2DartError {
-        // Branch doesn't exist on remote yet — set up orphan branch
+      } on Git2DartError catch (e) {
+        // Only swallow "branch not found" — rethrow anything unexpected
+        if (!e.message.contains('not found') &&
+            !e.message.contains('Could not find remote branch') &&
+            !e.message.contains('Reference') &&
+            !e.message.contains('reference')) {
+          rethrow;
+        }
         branchExists = false;
       }
 
