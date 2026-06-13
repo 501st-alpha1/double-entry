@@ -15,7 +15,7 @@ class GitSyncException implements Exception {
       'GitSyncException: $message${cause != null ? ' ($cause)' : ''}';
 }
 
-/// Manages a local clone of the mobile-sync branch and pushes commits to it.
+/// Manages a local single-branch clone of the mobile-sync branch.
 class GitSyncRepository {
   final String remoteUrl;
   final String branch;
@@ -55,7 +55,7 @@ class GitSyncRepository {
   }
 
   /// Commits the current state of the target file and pushes to remote.
-  /// Call this after the Ledger file has already been written by LedgerSyncRepository.
+  /// Call after the Ledger file has already been written by LedgerSyncRepository.
   Future<void> commitAndPush({
     required String authorName,
     required String authorEmail,
@@ -92,8 +92,7 @@ class GitSyncRepository {
     final repoPath = await localRepoPath();
     await Directory(repoPath).create(recursive: true);
 
-    // Use init + remote add + fetch instead of Repository.clone so we can
-    // specify a single-branch refspec and avoid downloading the entire repo.
+    // Use init + fetch with a single refspec for true single-branch clone.
     final repo = Repository.init(path: repoPath);
     try {
       final remote = Remote.create(
@@ -102,49 +101,36 @@ class GitSyncRepository {
         url: remoteUrl,
       );
 
+      bool branchExists = true;
       try {
         remote.fetch(
           refspecs: ['+refs/heads/$branch:refs/remotes/origin/$branch'],
-          callbacks: Callbacks(
-            credentials: _credentials,
-          ),
+          callbacks: Callbacks(credentials: _credentials),
         );
-      } on LibGit2Exception catch (e) {
-        // Branch doesn't exist on remote yet — that's fine, leave repo empty
-        if (!e.message.contains('not found') &&
-            !e.message.contains('Could not find remote branch')) {
-          rethrow;
-        }
-        // Orphan branch — nothing to check out, leave as empty repo
-        repo.setHead('refs/heads/$branch');
-        remote.free();
-        return;
+      } on Git2DartError {
+        // Branch doesn't exist on remote yet — set up orphan branch
+        branchExists = false;
       }
 
       // Set HEAD to track our branch
       repo.setHead('refs/heads/$branch');
 
-      // Check out the branch from the fetched remote ref
-      try {
-        final remoteRef = Reference.lookup(
-            repo: repo, name: 'refs/remotes/origin/$branch');
-        final commit = Commit.lookup(repo: repo, oid: remoteRef.target);
+      if (branchExists) {
+        try {
+          final remoteRef = Reference.lookup(
+              repo: repo, name: 'refs/remotes/origin/$branch');
+          final commit = Commit.lookup(repo: repo, oid: remoteRef.target);
 
-        // Create local branch pointing to remote commit
-        Branch.create(
-          repo: repo,
-          name: branch,
-          commit: commit,
-          force: true,
-        );
+          Branch.create(repo: repo, name: branch, target: commit);
 
-        // Checkout working tree
-        repo.checkout(refName: 'refs/heads/$branch');
+          // Check out working tree using reset
+          repo.reset(oid: remoteRef.target, resetType: GitReset.hard);
 
-        remoteRef.free();
-        commit.free();
-      } on LibGit2Exception {
-        // Remote branch was empty — leave as orphan
+          remoteRef.free();
+          commit.free();
+        } on Git2DartError {
+          // Nothing to check out yet
+        }
       }
 
       remote.free();
@@ -153,38 +139,29 @@ class GitSyncRepository {
     }
   }
 
-  Future<void> _initOrphanBranch(String repoPath) async {
-    // No-op — _clone now handles missing branches as orphans directly
-  }
-
   Future<void> _pull(String repoPath) async {
     final repo = Repository.open(repoPath);
     try {
       final remote = Remote.lookup(repo: repo, name: 'origin');
-      remote.fetch(
-        refspecs: ['+refs/heads/$branch:refs/remotes/origin/$branch'],
-        callbacks: Callbacks(
-          credentials: _credentials,
-        ),
-      );
-
-      // Fast-forward merge if remote is ahead
       try {
-        final remoteRef = Reference.lookup(
-            repo: repo, name: 'refs/remotes/origin/$branch');
-        final remoteCommit =
-            Commit.lookup(repo: repo, oid: remoteRef.target);
-        repo.mergeFastForward(commit: remoteCommit, setHead: true);
-        remoteRef.free();
-        remoteCommit.free();
-      } on LibGit2Exception {
-        // Already up to date or nothing to fast-forward — fine
-      }
+        remote.fetch(
+          refspecs: ['+refs/heads/$branch:refs/remotes/origin/$branch'],
+          callbacks: Callbacks(credentials: _credentials),
+        );
 
+        // Fast-forward by resetting to remote ref
+        try {
+          final remoteRef = Reference.lookup(
+              repo: repo, name: 'refs/remotes/origin/$branch');
+          repo.reset(oid: remoteRef.target, resetType: GitReset.hard);
+          remoteRef.free();
+        } on Git2DartError {
+          // Already up to date
+        }
+      } on Git2DartError {
+        // Pull failure is non-fatal
+      }
       remote.free();
-    } catch (e) {
-      // Pull failure is non-fatal — we'll push anyway and let the
-      // user resolve if there's a conflict
     } finally {
       repo.free();
     }
@@ -193,7 +170,7 @@ class GitSyncRepository {
   void _stageFile(Repository repo, String relativePath) {
     final index = repo.index;
     index.read();
-    index.addByPath(relativePath);
+    index.add(relativePath);
     index.write();
     index.free();
   }
@@ -209,17 +186,20 @@ class GitSyncRepository {
     index.free();
 
     final tree = Tree.lookup(repo: repo, oid: treeOid);
+    final now = DateTime.now();
     final sig = Signature.create(
       name: authorName,
       email: authorEmail,
-      time: DateTime.now().millisecondsSinceEpoch ~/ 1000,
-      offset: DateTime.now().timeZoneOffset.inMinutes,
+      time: now.millisecondsSinceEpoch ~/ 1000,
+      offset: now.timeZoneOffset.inMinutes,
     );
 
-    final now = DateTime.now();
     final message =
-        'Double Entry sync ${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')} '
-        '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+        'Double Entry sync ${now.year}-'
+        '${now.month.toString().padLeft(2, '0')}-'
+        '${now.day.toString().padLeft(2, '0')} '
+        '${now.hour.toString().padLeft(2, '0')}:'
+        '${now.minute.toString().padLeft(2, '0')}';
 
     // Get parent commit if branch exists
     Commit? parent;
@@ -227,8 +207,8 @@ class GitSyncRepository {
       final head = repo.head;
       parent = Commit.lookup(repo: repo, oid: head.target);
       head.free();
-    } on LibGit2Exception {
-      // No commits yet (orphan branch) — that's fine
+    } on Git2DartError {
+      // No commits yet (orphan branch)
     }
 
     Commit.create(
@@ -250,9 +230,7 @@ class GitSyncRepository {
     final remote = Remote.lookup(repo: repo, name: 'origin');
     remote.push(
       refspecs: ['refs/heads/$branch:refs/heads/$branch'],
-      callbacks: Callbacks(
-        credentials: _credentials,
-      ),
+      callbacks: Callbacks(credentials: _credentials),
     );
     remote.free();
   }
@@ -262,18 +240,8 @@ class GitSyncRepository {
 // Provider
 // ─────────────────────────────────────────────
 
-final gitSyncRepositoryProvider = Provider<GitSyncRepository?>((ref) {
-  final settings = ref.watch(settingsProvider).valueOrNull;
-  if (settings == null || !settings.isGitConfigured) return null;
-  if (settings.gitPublicKey == null) return null;
-
-  // Private key is loaded async — handled in GitSyncNotifier
-  return null; // constructed lazily via gitSyncNotifierProvider
-});
-
 /// Async provider that loads the private key and constructs the repository.
-final gitSyncProvider =
-    FutureProvider<GitSyncRepository?>((ref) async {
+final gitSyncProvider = FutureProvider<GitSyncRepository?>((ref) async {
   final settings = ref.watch(settingsProvider).valueOrNull;
   if (settings == null || !settings.isGitConfigured) return null;
   if (settings.gitPublicKey == null) return null;
