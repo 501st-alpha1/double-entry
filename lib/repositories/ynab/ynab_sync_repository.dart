@@ -88,7 +88,9 @@ class YnabSyncRepository {
           success: true,
           ynabTransactionId: ynabId,
         ));
-      } catch (e) {
+      } catch (e, st) {
+        debugPrint('YNAB sync error for transaction ${tx.id}: $e');
+        debugPrint('Stack trace: $st');
         await _transactionDao.updateSyncStatus(
           transactionId: tx.id,
           ynabStatus: 'failed',

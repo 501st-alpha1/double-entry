@@ -303,8 +303,17 @@ extension _HomeScreenSync on HomeScreen {
         final results = await ynabSync.syncPending();
         ynabSucceeded = results.where((r) => r.success).length;
         ynabFailed = results.where((r) => !r.success).length;
+        if (ynabFailed > 0) {
+          final errors = results
+              .where((r) => !r.success && r.error != null)
+              .map((r) => r.error!)
+              .join('; ');
+          debugPrint('YNAB sync failures: $errors');
+          gitError = errors; // reuse for display
+        }
       }
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint('YNAB sync exception: $e\n$st');
       ynabFailed++;
     }
 
@@ -346,8 +355,8 @@ extension _HomeScreenSync on HomeScreen {
       parts.add('Ledger: $ledgerSucceeded synced'
           '${ledgerFailed > 0 ? ', $ledgerFailed failed' : ''}');
     }
-    if (gitError != null) {
-      parts.add('Git: failed');
+    if (gitError != null && gitSuccess == false) {
+      parts.add('Git: failed — $gitError');
     } else if (gitSuccess) {
       parts.add('Git: pushed');
     }
