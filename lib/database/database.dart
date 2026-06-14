@@ -223,9 +223,10 @@ class AccountDao {
         .get();
   }
 
-  /// Returns budget mirror accounts ([Assets:Budget:*]) used in pending
-  /// transactions that have no ynabId. These are the accounts that need
-  /// linking before YNAB sync can succeed.
+  /// Returns accounts used in pending transactions that have no ynabId and
+  /// are required for YNAB sync:
+  /// - Budget mirror accounts ([Assets:Budget:*]) for category mapping
+  /// - Source accounts (isSource = true) for the YNAB account field
   Future<List<AccountRow>> unlinkedAccountsInPendingTransactions() async {
     // Get all pending/failed transaction IDs
     final txQuery = _db.select(_db.transactions)
@@ -235,21 +236,24 @@ class AccountDao {
     final txIds = (await txQuery.get()).map((t) => t.id).toSet();
     if (txIds.isEmpty) return [];
 
-    // Get budget mirror postings for those transactions
+    // Get budget mirror postings AND source postings
     final postingQuery = _db.select(_db.postings)
       ..where((p) =>
           p.transactionId.isIn(txIds) &
-          p.isBudgetMirror.equals(true));
+          (p.isBudgetMirror.equals(true) | p.isSource.equals(true)));
     final postings = await postingQuery.get();
     final accountIds = postings.map((p) => p.accountId).toSet();
     if (accountIds.isEmpty) return [];
 
-    // Return budget accounts with no ynabId
+    // Return accounts with no ynabId, filtered to relevant types:
+    // budget mirrors ([Assets:Budget:*]) and real asset/liability accounts
     final accountQuery = _db.select(_db.accounts)
       ..where((a) =>
           a.id.isIn(accountIds) &
           a.ynabId.isNull() &
-          a.ledgerName.like('[Assets:Budget:%'));
+          (a.ledgerName.like('[Assets:Budget:%') |
+           (a.ledgerName.like('[%').not() &
+            a.ledgerName.lower().like('expenses:%').not())));
     return accountQuery.get();
   }
 
