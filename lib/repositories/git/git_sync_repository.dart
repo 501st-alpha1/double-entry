@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:git2dart/git2dart.dart';
 import 'package:path/path.dart' as p;
@@ -155,17 +156,34 @@ class GitSyncRepository {
           callbacks: Callbacks(credentials: _credentials),
         );
 
-        // Fast-forward by resetting to remote ref
-        try {
-          final remoteRef = Reference.lookup(
-              repo: repo, name: 'refs/remotes/origin/$branch');
+        final remoteRef = Reference.lookup(
+            repo: repo, name: 'refs/remotes/origin/$branch');
+        final theirHead = AnnotatedCommit.lookup(
+            repo: repo, oid: remoteRef.target);
+
+        final analysis = Merge.analysis(
+            repo: repo, theirHead: remoteRef.target);
+
+        if (analysis.result.contains(GitMergeAnalysis.upToDate)) {
+          // Nothing to do
+        } else if (analysis.result.contains(GitMergeAnalysis.fastForward)) {
+          // Fast-forward: just move HEAD to the remote commit
           repo.reset(oid: remoteRef.target, resetType: GitReset.hard);
-          remoteRef.free();
-        } on Git2DartError {
-          // Already up to date
+        } else if (analysis.result.contains(GitMergeAnalysis.normal)) {
+          // Normal merge — since we're the only writer to this branch
+          // this shouldn't happen, but handle it gracefully
+          Merge.commit(repo: repo, commit: theirHead);
+          // Auto-commit the merge result
+          _commit(repo,
+              authorName: 'Double Entry',
+              authorEmail: 'double_entry@localhost');
         }
-      } on Git2DartError {
-        // Pull failure is non-fatal
+
+        theirHead.free();
+        remoteRef.free();
+      } on Git2DartError catch (e) {
+        // Pull failure is non-fatal — log and continue
+        debugPrint('Git pull failed: $e');
       }
       remote.free();
     } finally {
