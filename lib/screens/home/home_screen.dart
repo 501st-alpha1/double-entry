@@ -267,7 +267,6 @@ extension _HomeScreenSync on HomeScreen {
   Future<void> _sync(BuildContext context, WidgetRef ref) async {
     final ynabSync = ref.read(ynabSyncRepositoryProvider);
     final ledgerSync = ref.read(ledgerSyncRepositoryProvider);
-    final gitSyncAsync = ref.read(gitSyncProvider);
 
     if (ynabSync == null && ledgerSync == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -327,18 +326,20 @@ extension _HomeScreenSync on HomeScreen {
       ledgerFailed++;
     }
 
-    // Git push — only on Android, only if ledger sync wrote something
+    // Git push — only on Android, runs independently of ledger sync result
     if (!Platform.isLinux && !Platform.isMacOS && !Platform.isWindows) {
       try {
-        final gitRepo = await gitSyncAsync.value;
-        if (gitRepo != null && ledgerSucceeded > 0) {
+        // gitSyncProvider is a FutureProvider — read the future directly
+        final gitRepo = await ref.read(gitSyncProvider.future);
+        if (gitRepo != null) {
           await gitRepo.commitAndPush(
             authorName: 'Double Entry',
             authorEmail: 'double_entry@localhost',
           );
           gitSuccess = true;
         }
-      } catch (e) {
+      } catch (e, st) {
+        debugPrint('Git sync error: $e\n$st');
         gitError = e.toString();
       }
     }
