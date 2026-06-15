@@ -267,13 +267,19 @@ class GitSyncRepository {
 /// Async provider that loads the private key and constructs the repository.
 final gitSyncProvider = FutureProvider<GitSyncRepository?>((ref) async {
   final settings = ref.watch(settingsProvider).valueOrNull;
+  debugPrint('gitSyncProvider: settings=$settings, isGitConfigured=${settings?.isGitConfigured}');
   if (settings == null || !settings.isGitConfigured) return null;
-  if (settings.gitPublicKey == null) return null;
+  if (settings.gitPublicKey == null) {
+    debugPrint('gitSyncProvider: gitPublicKey is null');
+    return null;
+  }
 
   final privateKey =
       await ref.watch(settingsServiceProvider).loadGitPrivateKey();
+  debugPrint('gitSyncProvider: privateKey exists=${privateKey != null}');
   if (privateKey == null) return null;
 
+  debugPrint('gitSyncProvider: creating GitSyncRepository url=${settings.gitRemoteUrl} branch=${settings.gitBranch}');
   return GitSyncRepository(
     remoteUrl: settings.gitRemoteUrl!,
     branch: settings.gitBranch ?? 'mobile-sync',

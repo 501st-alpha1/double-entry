@@ -328,20 +328,28 @@ extension _HomeScreenSync on HomeScreen {
 
     // Git push — only on Android, runs independently of ledger sync result
     if (!Platform.isLinux && !Platform.isMacOS && !Platform.isWindows) {
+      debugPrint('Git: on Android, attempting git sync...');
       try {
         // gitSyncProvider is a FutureProvider — read the future directly
         final gitRepo = await ref.read(gitSyncProvider.future);
+        debugPrint('Git: gitRepo = $gitRepo');
         if (gitRepo != null) {
+          debugPrint('Git: calling commitAndPush...');
           await gitRepo.commitAndPush(
             authorName: 'Double Entry',
             authorEmail: 'double_entry@localhost',
           );
           gitSuccess = true;
+          debugPrint('Git: commitAndPush succeeded');
+        } else {
+          debugPrint('Git: gitRepo is null — check git settings configuration');
         }
       } catch (e, st) {
         debugPrint('Git sync error: $e\n$st');
         gitError = e.toString();
       }
+    } else {
+      debugPrint('Git: skipping git sync on desktop');
     }
 
     if (!context.mounted) return;
