@@ -37,7 +37,6 @@ class AppSettings {
   final String? ledgerOutputPath;
 
   /// The payee name used for budget move transactions.
-  /// Defaults to null (user must enter manually if not set).
   final String? budgetMovePayee;
 
   /// Git remote URL, e.g. git@gitea.example.com:user/ledger.git
