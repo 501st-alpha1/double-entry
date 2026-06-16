@@ -282,8 +282,8 @@ final gitSyncProvider = FutureProvider<GitSyncRepository?>((ref) async {
   debugPrint('gitSyncProvider: creating GitSyncRepository url=${settings.gitRemoteUrl} branch=${settings.gitBranch}');
   return GitSyncRepository(
     remoteUrl: settings.gitRemoteUrl!,
-    branch: settings.gitBranch ?? 'mobile-sync',
-    targetFile: settings.gitTargetFile ?? 'mobile.ledger',
+    branch: settings.effectiveGitBranch,
+    targetFile: settings.effectiveGitTargetFile,
     privateKeyPem: privateKey,
     publicKeyOpenSsh: settings.gitPublicKey!,
   );

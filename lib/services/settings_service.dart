@@ -71,9 +71,13 @@ class AppSettings {
   bool get isYnabConfigured => ynabToken != null && ynabBudgetId != null;
   bool get isLedgerConfigured => ledgerOutputPath != null;
   bool get isGitConfigured =>
-      gitRemoteUrl != null &&
-      gitBranch != null &&
-      gitPrivateKeyExists;
+      gitRemoteUrl != null && gitPrivateKeyExists;
+
+  /// Effective branch name — uses stored value or default.
+  String get effectiveGitBranch => gitBranch ?? 'mobile-sync';
+
+  /// Effective target file — uses stored value or default.
+  String get effectiveGitTargetFile => gitTargetFile ?? 'mobile.ledger';
   bool get isFullyConfigured => isYnabConfigured && isLedgerConfigured;
 
   AppSettings copyWith({

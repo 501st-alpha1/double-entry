@@ -144,7 +144,7 @@ final ledgerOutputRepositoryProvider =
   final isDesktop = Platform.isLinux || Platform.isMacOS || Platform.isWindows;
   if (!isDesktop && settings.isGitConfigured) {
     // Path will be resolved at write time using git repo location
-    final targetFile = settings.gitTargetFile ?? 'mobile.ledger';
+    final targetFile = settings.effectiveGitTargetFile;
     return _GitPathLedgerOutputRepository(targetFile: targetFile);
   }
 
