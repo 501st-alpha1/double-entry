@@ -17,6 +17,9 @@ const _keyGitBranch = 'git_branch';
 const _keyGitTargetFile = 'git_target_file';
 const _keyGitPrivateKey = 'git_private_key'; // stored in secure storage
 const _keyGitPublicKey = 'git_public_key';   // non-sensitive, prefs
+const _keyGitSyncStatus = 'git_sync_status';
+
+enum GitSyncStatus { upToDate, pendingPush, failed }
 
 // ─────────────────────────────────────────────
 // Settings model
@@ -54,6 +57,9 @@ class AppSettings {
   /// Whether the private key has been generated (key itself is in secure storage).
   final bool gitPrivateKeyExists;
 
+  /// Current Git push status.
+  final GitSyncStatus gitSyncStatus;
+
   const AppSettings({
     this.ynabToken,
     this.ynabBudgetId,
@@ -65,6 +71,7 @@ class AppSettings {
     this.gitTargetFile,
     this.gitPublicKey,
     this.gitPrivateKeyExists = false,
+    this.gitSyncStatus = GitSyncStatus.upToDate,
   });
 
   bool get isYnabConfigured => ynabToken != null && ynabBudgetId != null;
@@ -90,6 +97,7 @@ class AppSettings {
     String? gitTargetFile,
     String? gitPublicKey,
     bool? gitPrivateKeyExists,
+    GitSyncStatus? gitSyncStatus,
     bool clearYnabToken = false,
     bool clearYnabBudgetId = false,
     bool clearLedgerOutputPath = false,
@@ -111,6 +119,7 @@ class AppSettings {
       gitTargetFile: gitTargetFile ?? this.gitTargetFile,
       gitPublicKey: gitPublicKey ?? this.gitPublicKey,
       gitPrivateKeyExists: gitPrivateKeyExists ?? this.gitPrivateKeyExists,
+      gitSyncStatus: gitSyncStatus ?? this.gitSyncStatus,
     );
   }
 }
@@ -132,6 +141,11 @@ class SettingsService {
   Future<AppSettings> load() async {
     final token = await _secure.read(key: _keyYnabToken);
     final privateKey = await _secure.read(key: _keyGitPrivateKey);
+    final gitSyncStatusStr = _prefs.getString(_keyGitSyncStatus);
+    final gitSyncStatus = GitSyncStatus.values.firstWhere(
+      (e) => e.name == gitSyncStatusStr,
+      orElse: () => GitSyncStatus.upToDate,
+    );
     return AppSettings(
       ynabToken: token?.trim(),
       ynabBudgetId: _prefs.getString(_keyYnabBudgetId),
@@ -143,8 +157,12 @@ class SettingsService {
       gitTargetFile: _prefs.getString(_keyGitTargetFile),
       gitPublicKey: _prefs.getString(_keyGitPublicKey),
       gitPrivateKeyExists: privateKey != null,
+      gitSyncStatus: gitSyncStatus,
     );
   }
+
+  Future<void> setGitSyncStatus(GitSyncStatus status) =>
+      _prefs.setString(_keyGitSyncStatus, status.name);
 
   Future<String?> loadGitPrivateKey() =>
       _secure.read(key: _keyGitPrivateKey);
@@ -282,6 +300,11 @@ class SettingsNotifier extends StateNotifier<AsyncValue<AppSettings>> {
 
   Future<void> setGitTargetFile(String file) async {
     await _service.setGitTargetFile(file);
+    await load();
+  }
+
+  Future<void> setGitSyncStatus(GitSyncStatus status) async {
+    await _service.setGitSyncStatus(status);
     await load();
   }
 
