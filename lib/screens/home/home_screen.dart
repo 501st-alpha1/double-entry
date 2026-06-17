@@ -59,6 +59,8 @@ class HomeScreen extends ConsumerWidget {
                     : _UnlinkedAccountsBanner(accounts: accounts),
                 orElse: () => const SizedBox.shrink(),
               ),
+          // Git sync status banner
+          _GitSyncBanner(),
           // Transaction list
           Expanded(
             child: pendingAsync.when(
@@ -234,6 +236,45 @@ class _SyncStatusIndicator extends StatelessWidget {
   }
 }
 
+class _GitSyncBanner extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(settingsProvider).valueOrNull;
+    if (settings == null) return const SizedBox.shrink();
+
+    // Only show on Android when Git is configured
+    if (Platform.isLinux || Platform.isMacOS || Platform.isWindows) {
+      return const SizedBox.shrink();
+    }
+    if (!settings.isGitConfigured) return const SizedBox.shrink();
+
+    final status = settings.gitSyncStatus;
+    if (status == GitSyncStatus.upToDate) return const SizedBox.shrink();
+
+    final isFailed = status == GitSyncStatus.failed;
+
+    return MaterialBanner(
+      padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+      content: Text(isFailed
+          ? 'Git push failed — ledger file has local unsynced changes.'
+          : 'Ledger file has changes not yet pushed to Git.'),
+      leading: Icon(
+        isFailed ? Icons.cloud_off : Icons.cloud_upload_outlined,
+        color: isFailed
+            ? Theme.of(context).colorScheme.error
+            : Theme.of(context).colorScheme.primary,
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => ScaffoldMessenger.of(context)
+              .hideCurrentMaterialBanner(),
+          child: const Text('Dismiss'),
+        ),
+      ],
+    );
+  }
+}
+
 class _UnlinkedAccountsBanner extends ConsumerWidget {
   final List<AccountRow> accounts;
   const _UnlinkedAccountsBanner({required this.accounts});
@@ -326,9 +367,16 @@ extension _HomeScreenSync on HomeScreen {
       ledgerFailed++;
     }
 
-    // Git push — only on Android, runs independently of ledger sync result
+    // Git push — only on Android
     if (!Platform.isLinux && !Platform.isMacOS && !Platform.isWindows) {
       debugPrint('Git: on Android, attempting git sync...');
+      // If ledger sync wrote anything, mark as pending push
+      if (ledgerSucceeded > 0) {
+        await ref
+            .read(settingsProvider.notifier)
+            .setGitSyncStatus(GitSyncStatus.pendingPush);
+      }
+
       try {
         // gitSyncProvider is a FutureProvider — read the future directly
         final gitRepo = await ref.read(gitSyncProvider.future);
@@ -341,12 +389,18 @@ extension _HomeScreenSync on HomeScreen {
           );
           gitSuccess = true;
           debugPrint('Git: commitAndPush succeeded');
+          await ref
+              .read(settingsProvider.notifier)
+              .setGitSyncStatus(GitSyncStatus.upToDate);
         } else {
           debugPrint('Git: gitRepo is null — check git settings configuration');
         }
       } catch (e, st) {
         debugPrint('Git sync error: $e\n$st');
         gitError = e.toString();
+        await ref
+            .read(settingsProvider.notifier)
+            .setGitSyncStatus(GitSyncStatus.failed);
       }
     } else {
       debugPrint('Git: skipping git sync on desktop');
