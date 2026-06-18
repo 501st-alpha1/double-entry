@@ -264,13 +264,7 @@ class _GitSyncBanner extends ConsumerWidget {
             ? Theme.of(context).colorScheme.error
             : Theme.of(context).colorScheme.primary,
       ),
-      actions: [
-        TextButton(
-          onPressed: () => ScaffoldMessenger.of(context)
-              .hideCurrentMaterialBanner(),
-          child: const Text('Dismiss'),
-        ),
-      ],
+      actions: const [SizedBox.shrink()],
     );
   }
 }
