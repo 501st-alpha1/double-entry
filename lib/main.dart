@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:git2dart/git2dart.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'app.dart';
 import 'database/database_provider.dart';
@@ -9,6 +10,9 @@ import 'services/settings_service.dart';
 void main() async {
   // Required when doing async work before runApp.
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Required for git2dart — sets up CA certs and platform-specific network stack.
+  await PlatformSpecific.initialize();
 
   // Initialize database and settings service before the app starts.
   final db = await openAppDatabase();
