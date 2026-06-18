@@ -82,12 +82,15 @@ class GitSyncRepository {
   // Private helpers
   // ─────────────────────────────────────────────
 
-  KeypairFromMemory get _credentials => KeypairFromMemory(
-        username: 'git',
-        pubKey: publicKeyOpenSsh,
-        privateKey: privateKeyPem,
-        passPhrase: '',
-      );
+  KeypairFromMemory get _credentials {
+    debugPrint('Git: building KeypairFromMemory, pubKey starts=${publicKeyOpenSsh.substring(0, 20)}..., privKey length=${privateKeyPem.length}');
+    return KeypairFromMemory(
+      username: 'git',
+      pubKey: publicKeyOpenSsh,
+      privateKey: privateKeyPem,
+      passPhrase: '',
+    );
+  }
 
   Future<void> _clone() async {
     final repoPath = await localRepoPath();
@@ -147,10 +150,14 @@ class GitSyncRepository {
   }
 
   Future<void> _pull(String repoPath) async {
+    debugPrint('Git: _pull starting, repoPath=$repoPath');
     final repo = Repository.open(repoPath);
     try {
+      debugPrint('Git: looking up remote origin');
       final remote = Remote.lookup(repo: repo, name: 'origin');
+      debugPrint('Git: remote url=${remote.url}');
       try {
+        debugPrint('Git: starting fetch, refspec=+refs/heads/$branch:refs/remotes/origin/$branch');
         remote.fetch(
           refspecs: ['+refs/heads/$branch:refs/remotes/origin/$branch'],
           callbacks: Callbacks(credentials: _credentials),
