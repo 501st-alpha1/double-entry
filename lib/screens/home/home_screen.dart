@@ -33,16 +33,23 @@ class HomeScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Double Entry'),
         actions: [
-          pendingAsync.maybeWhen(
-            data: (transactions) => transactions.isEmpty
-                ? const SizedBox.shrink()
-                : IconButton(
+          Builder(builder: (context) {
+            final hasPendingTransactions = pendingAsync.valueOrNull?.isNotEmpty ?? false;
+            final gitStatus = ref.watch(settingsProvider).valueOrNull?.gitSyncStatus;
+            final gitNeedsSync = gitStatus == GitSyncStatus.pendingPush ||
+                gitStatus == GitSyncStatus.failed;
+            final showSync = hasPendingTransactions || gitNeedsSync;
+            final count = pendingAsync.valueOrNull?.length ?? 0;
+            return showSync
+                ? IconButton(
                     icon: const Icon(Icons.sync),
-                    tooltip: 'Sync ${transactions.length} pending',
+                    tooltip: count > 0
+                        ? 'Sync $count pending'
+                        : 'Retry Git push',
                     onPressed: () => _sync(context, ref),
-                  ),
-            orElse: () => const SizedBox.shrink(),
-          ),
+                  )
+                : const SizedBox.shrink();
+          }),
           IconButton(
             icon: const Icon(Icons.settings_outlined),
             tooltip: 'Settings',
