@@ -245,12 +245,14 @@ class TransactionFormNotifier extends StateNotifier<TransactionFormState> {
       final transactionDao = _ref.read(transactionDaoProvider);
       final payeeDao = _ref.read(payeeDaoProvider);
 
-      // Resolve or create payee
-      final payeeId = await _resolvePayeeId(payeeDao, savePayeeDefaults,
-          effectivePayeeName: effectivePayeeName);
+      // Resolve effective payee name before creating/resolving payee record
       final effectivePayeeName = state.payeeNameRaw.trim().isNotEmpty
           ? state.payeeNameRaw.trim()
           : (state.budgetMovePayee ?? '');
+
+      // Resolve or create payee
+      final payeeId = await _resolvePayeeId(payeeDao, savePayeeDefaults,
+          effectivePayeeName: effectivePayeeName);
 
       // Only persist budgetMonth when it actually overrides the date's month
       final budgetMonthToSave =
