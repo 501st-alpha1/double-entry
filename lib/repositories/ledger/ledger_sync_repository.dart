@@ -139,6 +139,7 @@ class LedgerSyncRepository {
       postings: postings,
       note: tx.note,
       createdAt: tx.createdAt,
+      budgetMonth: tx.budgetMonth,
     );
   }
 }

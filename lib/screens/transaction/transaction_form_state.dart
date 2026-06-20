@@ -77,7 +77,16 @@ class TransactionFormState {
   /// and the payee field is hidden.
   final String? budgetMovePayee;
 
-  const TransactionFormState({
+  /// The YNAB month this budget move should apply to. Only relevant when
+  /// type is budgetMove. Defaults to the current month. Only year/month
+  /// matter — day is ignored (always normalized to the 1st).
+  final DateTime budgetMonth;
+
+  /// True once the user has explicitly changed budgetMonth via the picker.
+  /// While false, budgetMonth auto-follows changes to [date]'s month.
+  final bool budgetMonthManuallySet;
+
+  TransactionFormState({
     this.type = TransactionType.expense,
     required this.date,
     required this.time,
@@ -88,7 +97,9 @@ class TransactionFormState {
     this.isSaving = false,
     this.error,
     this.budgetMovePayee,
-  });
+    DateTime? budgetMonth,
+    this.budgetMonthManuallySet = false,
+  }) : budgetMonth = budgetMonth ?? DateTime(date.year, date.month, 1);
 
   /// The sum of all posting amounts in milliunits.
   /// For a balanced transaction this should be zero (credits + debits cancel).
@@ -120,6 +131,18 @@ class TransactionFormState {
       payeeNameRaw.trim().isNotEmpty ||
       (type == TransactionType.budgetMove && budgetMovePayee != null);
 
+  /// True when the budget move's target month differs from the
+  /// transaction date's month — meaning the YNAB PATCH targets a
+  /// different month than `date` falls in, and the Ledger output needs
+  /// an effective-date comment.
+  bool get isBudgetMonthOverridden =>
+      type == TransactionType.budgetMove &&
+      (budgetMonth.year != date.year || budgetMonth.month != date.month);
+
+  /// The last day of [budgetMonth], used for the Ledger effective-date tag.
+  DateTime get budgetMonthLastDay =>
+      DateTime(budgetMonth.year, budgetMonth.month + 1, 0);
+
   TransactionFormState copyWith({
     TransactionType? type,
     DateTime? date,
@@ -133,6 +156,8 @@ class TransactionFormState {
     String? error,
     bool clearError = false,
     String? budgetMovePayee,
+    DateTime? budgetMonth,
+    bool? budgetMonthManuallySet,
   }) {
     return TransactionFormState(
       type: type ?? this.type,
@@ -145,6 +170,9 @@ class TransactionFormState {
       isSaving: isSaving ?? this.isSaving,
       error: clearError ? null : (error ?? this.error),
       budgetMovePayee: budgetMovePayee ?? this.budgetMovePayee,
+      budgetMonth: budgetMonth ?? this.budgetMonth,
+      budgetMonthManuallySet:
+          budgetMonthManuallySet ?? this.budgetMonthManuallySet,
     );
   }
 }

@@ -84,6 +84,11 @@ class _TransactionScreenState extends ConsumerState<TransactionScreen> {
             _DateTimeRow(),
             const SizedBox(height: 16),
 
+            if (formState.type == TransactionType.budgetMove) ...[
+              _BudgetMonthField(),
+              const SizedBox(height: 16),
+            ],
+
             // Payee field, if needed.
             if (formState.type != TransactionType.budgetMove ||
                 ref.watch(settingsProvider).valueOrNull?.budgetMovePayee == null) ...[
@@ -232,6 +237,72 @@ class _DateTimeRow extends ConsumerWidget {
 
   String _formatTime(DateTime d) =>
       '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+}
+
+/// Month/year picker for budget moves. Defaults to the transaction date's
+/// month; lets the user step to a prior or future month for the YNAB
+/// budget allocation, independent of the Ledger transaction date.
+class _BudgetMonthField extends ConsumerWidget {
+  static const _monthNames = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December',
+  ];
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(transactionFormProvider);
+    final notifier = ref.read(transactionFormProvider.notifier);
+    final month = state.budgetMonth;
+    final isOverridden = state.isBudgetMonthOverridden;
+
+    void shift(int delta) {
+      final newMonth = DateTime(month.year, month.month + delta, 1);
+      notifier.setBudgetMonth(newMonth.year, newMonth.month);
+    }
+
+    return Row(
+      children: [
+        Expanded(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.chevron_left, size: 20),
+                onPressed: () => shift(-1),
+                tooltip: 'Previous month',
+              ),
+              Expanded(
+                child: Column(
+                  children: [
+                    Text(
+                      'Budget Month',
+                      style: Theme.of(context).textTheme.labelSmall,
+                    ),
+                    Text(
+                      '${_monthNames[month.month - 1]} ${month.year}',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            color: isOverridden
+                                ? Theme.of(context).colorScheme.error
+                                : null,
+                            fontWeight:
+                                isOverridden ? FontWeight.bold : null,
+                          ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.chevron_right, size: 20),
+                onPressed: () => shift(1),
+                tooltip: 'Next month',
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class _PayeeField extends ConsumerStatefulWidget {

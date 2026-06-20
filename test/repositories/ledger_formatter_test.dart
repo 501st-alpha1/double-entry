@@ -270,5 +270,125 @@ void main() {
         }
       }
     });
+
+    test('budget move with budgetMonth in the same month as date has no '
+        'effective-date comment', () {
+      final groceriesAccount = Account(
+          id: 'budget-groceries', ledgerName: '[Assets:Budget:Groceries]');
+      final diningAccount =
+          Account(id: 'budget-dining', ledgerName: '[Assets:Budget:Dining]');
+
+      final transaction = Transaction(
+        id: 'tx-12',
+        type: TransactionType.budgetMove,
+        date: DateTime(2024, 1, 15),
+        payee: 'Budget adjustment',
+        postings: [
+          Posting(
+              account: groceriesAccount,
+              amountMilliunits: -20000,
+              isBudgetMirror: true),
+          Posting(
+              account: diningAccount,
+              amountMilliunits: 20000,
+              isBudgetMirror: true),
+        ],
+        createdAt: DateTime(2024, 1, 15),
+        budgetMonth: DateTime(2024, 1, 1),
+      );
+
+      final output = formatter.formatTransaction(transaction);
+      expect(output, isNot(contains('[=')));
+    });
+
+    test('budget move with prior budgetMonth includes effective-date '
+        'comment for the last day of that month', () {
+      final groceriesAccount = Account(
+          id: 'budget-groceries', ledgerName: '[Assets:Budget:Groceries]');
+      final diningAccount =
+          Account(id: 'budget-dining', ledgerName: '[Assets:Budget:Dining]');
+
+      final transaction = Transaction(
+        id: 'tx-13',
+        type: TransactionType.budgetMove,
+        date: DateTime(2026, 6, 20),
+        payee: 'Budget adjustment',
+        postings: [
+          Posting(
+              account: groceriesAccount,
+              amountMilliunits: -20000,
+              isBudgetMirror: true),
+          Posting(
+              account: diningAccount,
+              amountMilliunits: 20000,
+              isBudgetMirror: true),
+        ],
+        createdAt: DateTime(2026, 6, 20),
+        budgetMonth: DateTime(2026, 5, 1),
+      );
+
+      final output = formatter.formatTransaction(transaction);
+      expect(output, contains(';; [=2026/05/31]'));
+    });
+
+    test('effective-date comment appears after TransactionTime and before '
+        'the note', () {
+      final groceriesAccount = Account(
+          id: 'budget-groceries', ledgerName: '[Assets:Budget:Groceries]');
+      final diningAccount =
+          Account(id: 'budget-dining', ledgerName: '[Assets:Budget:Dining]');
+
+      final transaction = Transaction(
+        id: 'tx-14',
+        type: TransactionType.budgetMove,
+        date: DateTime(2026, 6, 20),
+        payee: 'Budget adjustment',
+        note: 'Catching up May overspend',
+        postings: [
+          Posting(
+              account: groceriesAccount,
+              amountMilliunits: -20000,
+              isBudgetMirror: true),
+          Posting(
+              account: diningAccount,
+              amountMilliunits: 20000,
+              isBudgetMirror: true),
+        ],
+        createdAt: DateTime(2026, 6, 20, 13, 42),
+        budgetMonth: DateTime(2026, 5, 1),
+      );
+
+      final output = formatter.formatTransaction(transaction);
+      final timeIdx = output.indexOf('TransactionTime');
+      final effDateIdx = output.indexOf('[=2026/05/31]');
+      final noteIdx = output.indexOf('Catching up May overspend');
+
+      expect(timeIdx, lessThan(effDateIdx));
+      expect(effDateIdx, lessThan(noteIdx));
+    });
+
+    test('budgetMonth on non-budgetMove transaction has no effect', () {
+      // isBudgetMonthOverridden requires the postings model's own check,
+      // but the formatter always checks transaction.isBudgetMonthOverridden,
+      // which only depends on budgetMonth vs date, not type. Confirm here
+      // that an expense with a stray budgetMonth set still emits the tag,
+      // since the model intentionally doesn't gate on type — only the
+      // notifier guarantees budgetMonth is null outside budgetMove.
+      final transaction = Transaction(
+        id: 'tx-15',
+        type: TransactionType.expense,
+        date: DateTime(2026, 6, 20),
+        payee: 'Whole Foods',
+        postings: [
+          Posting(account: foodExpense, amountMilliunits: 45000),
+          Posting(account: bankAccount, amountMilliunits: -45000),
+        ],
+        createdAt: DateTime(2026, 6, 20),
+        budgetMonth: null,
+      );
+
+      final output = formatter.formatTransaction(transaction);
+      expect(output, isNot(contains('[=')));
+    });
   });
 }

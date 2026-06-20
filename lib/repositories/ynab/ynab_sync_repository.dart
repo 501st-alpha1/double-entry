@@ -231,7 +231,7 @@ class YnabSyncRepository {
   /// posting's amount.
   Future<YnabSyncResult> _syncBudgetMove(TransactionRow tx) async {
     final postings = await _transactionDao.postingsForTransaction(tx.id);
-    final month = _formatMonth(tx.date);
+    final month = _formatMonth(tx.budgetMonth ?? tx.date);
 
     for (final posting in postings) {
       final account = await _accountDao.findById(posting.accountId);

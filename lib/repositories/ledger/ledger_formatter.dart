@@ -38,6 +38,12 @@ class LedgerFormatter {
     // TransactionTime tag always comes first
     buffer.writeln('    ;; TransactionTime: ${_formatTime(transaction.time)}');
 
+    // Budget month override: effective-date tag, just below TransactionTime
+    if (transaction.isBudgetMonthOverridden) {
+      final lastDay = transaction.budgetMonthLastDay!;
+      buffer.writeln('    ;; [=${_formatDate(lastDay)}]');
+    }
+
     // Transaction-level note as a comment (after TransactionTime)
     if (transaction.note != null && transaction.note!.isNotEmpty) {
       buffer.writeln('    ;; ${transaction.note}');

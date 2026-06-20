@@ -39,12 +39,35 @@ class TransactionFormNotifier extends StateNotifier<TransactionFormState> {
           : '',
       clearPayee: true,
       budgetMovePayee: budgetMovePayee,
+      // Reset budget month to match the current date's month whenever
+      // switching type — avoids carrying over a stale override.
+      budgetMonth: DateTime(state.date.year, state.date.month, 1),
+      budgetMonthManuallySet: false,
     );
   }
 
-  void setDate(DateTime date) => state = state.copyWith(date: date);
+  void setDate(DateTime date) {
+    // Auto-follow budgetMonth to date's month unless the user has
+    // explicitly picked a different budget month for this transaction.
+    final shouldFollow =
+        !state.budgetMonthManuallySet && state.type == TransactionType.budgetMove;
+    state = state.copyWith(
+      date: date,
+      budgetMonth:
+          shouldFollow ? DateTime(date.year, date.month, 1) : null,
+    );
+  }
 
   void setTime(DateTime time) => state = state.copyWith(time: time);
+
+  /// Sets the YNAB month this budget move should apply to.
+  /// Only [year]/[month] are used — always normalized to the 1st.
+  void setBudgetMonth(int year, int month) {
+    state = state.copyWith(
+      budgetMonth: DateTime(year, month, 1),
+      budgetMonthManuallySet: true,
+    );
+  }
 
   void setNote(String note) => state = state.copyWith(note: note);
 
@@ -203,6 +226,8 @@ class TransactionFormNotifier extends StateNotifier<TransactionFormState> {
       payeeNameRaw: tx.payeeName,
       postingRows: rows.isEmpty ? [PostingFormRow(rowId: _uuid.v4())] : rows,
       note: tx.note,
+      budgetMonth: tx.budgetMonth,
+      budgetMonthManuallySet: tx.budgetMonth != null,
     );
   }
 
@@ -221,11 +246,15 @@ class TransactionFormNotifier extends StateNotifier<TransactionFormState> {
       final payeeDao = _ref.read(payeeDaoProvider);
 
       // Resolve or create payee
+      final payeeId = await _resolvePayeeId(payeeDao, savePayeeDefaults,
+          effectivePayeeName: effectivePayeeName);
       final effectivePayeeName = state.payeeNameRaw.trim().isNotEmpty
           ? state.payeeNameRaw.trim()
           : (state.budgetMovePayee ?? '');
-      final payeeId = await _resolvePayeeId(payeeDao, savePayeeDefaults,
-          effectivePayeeName: effectivePayeeName);
+
+      // Only persist budgetMonth when it actually overrides the date's month
+      final budgetMonthToSave =
+          state.isBudgetMonthOverridden ? state.budgetMonth : null;
 
       // If editing, delete old postings and update the transaction row in place.
       // This preserves the original createdAt and transaction ID.
@@ -240,6 +269,7 @@ class TransactionFormNotifier extends StateNotifier<TransactionFormState> {
             payeeId: Value(payeeId),
             payeeName: Value(effectivePayeeName),
             note: Value(state.note),
+            budgetMonth: Value(budgetMonthToSave),
           ),
         );
       } else {
@@ -254,6 +284,7 @@ class TransactionFormNotifier extends StateNotifier<TransactionFormState> {
             payeeName: effectivePayeeName,
             note: Value(state.note),
             createdAt: now,
+            budgetMonth: Value(budgetMonthToSave),
           ),
         );
       }

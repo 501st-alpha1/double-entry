@@ -55,6 +55,10 @@ class Transaction {
   /// Not sent to YNAB; output as a Ledger tag: "; TransactionTime: 13:42"
   final DateTime time;
 
+  /// For budgetMove transactions only: the YNAB month this move applies to.
+  /// Null means "same month as date" — no override.
+  final DateTime? budgetMonth;
+
   Transaction({
     required this.id,
     required this.type,
@@ -67,7 +71,19 @@ class Transaction {
     this.ynabTransactionId,
     required this.createdAt,
     DateTime? time,
+    this.budgetMonth,
   }) : time = time ?? createdAt;
+
+  /// True when budgetMonth is set and differs from date's month — meaning
+  /// the Ledger output needs an effective-date tag.
+  bool get isBudgetMonthOverridden =>
+      budgetMonth != null &&
+      (budgetMonth!.year != date.year || budgetMonth!.month != date.month);
+
+  /// The last day of [budgetMonth], used for the Ledger effective-date tag.
+  DateTime? get budgetMonthLastDay => budgetMonth == null
+      ? null
+      : DateTime(budgetMonth!.year, budgetMonth!.month + 1, 0);
 
   /// Whether this transaction is fully synced to both systems.
   bool get isFullySynced =>
@@ -98,6 +114,7 @@ class Transaction {
     String? ynabTransactionId,
     DateTime? createdAt,
     DateTime? time,
+    DateTime? budgetMonth,
   }) {
     return Transaction(
       id: id ?? this.id,
@@ -111,6 +128,7 @@ class Transaction {
       ynabTransactionId: ynabTransactionId ?? this.ynabTransactionId,
       createdAt: createdAt ?? this.createdAt,
       time: time ?? this.time,
+      budgetMonth: budgetMonth ?? this.budgetMonth,
     );
   }
 
