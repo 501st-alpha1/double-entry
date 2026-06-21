@@ -233,7 +233,11 @@ class AccountDao {
 
   /// Returns accounts used in pending transactions that have no ynabId and
   /// are required for YNAB sync:
-  /// - Budget mirror accounts ([Assets:Budget:*]) for category mapping
+  /// - Budget mirror accounts ([Assets:Budget:*]) for category mapping on
+  ///   regular expense/income transactions
+  /// - Budget accounts used directly in budgetMove transactions (these are
+  ///   stored as regular, non-mirror postings since there's no "real"
+  ///   account side to a budget move)
   /// - Source accounts (isSource = true) for the YNAB account field
   Future<List<AccountRow>> unlinkedAccountsInPendingTransactions() async {
     // Get all pending/failed transaction IDs
@@ -244,17 +248,21 @@ class AccountDao {
     final txIds = (await txQuery.get()).map((t) => t.id).toSet();
     if (txIds.isEmpty) return [];
 
-    // Get budget mirror postings AND source postings
+    // Get every posting for those transactions — we can't safely filter to
+    // just isBudgetMirror/isSource here, because budgetMove transactions
+    // store their [Assets:Budget:*] postings as plain (non-mirror) rows,
+    // and only one of the two postings is flagged isSource. Filtering
+    // further by account name happens below instead.
     final postingQuery = _db.select(_db.postings)
-      ..where((p) =>
-          p.transactionId.isIn(txIds) &
-          (p.isBudgetMirror.equals(true) | p.isSource.equals(true)));
+      ..where((p) => p.transactionId.isIn(txIds));
     final postings = await postingQuery.get();
     final accountIds = postings.map((p) => p.accountId).toSet();
     if (accountIds.isEmpty) return [];
 
     // Return accounts with no ynabId, filtered to relevant types:
-    // budget mirrors ([Assets:Budget:*]) and real asset/liability accounts
+    // budget mirrors/budget accounts ([Assets:Budget:*]) and real
+    // asset/liability accounts (excluding Expenses:* and other bracket
+    // accounts like [Liabilities:Budget], which never get linked).
     final accountQuery = _db.select(_db.accounts)
       ..where((a) =>
           a.id.isIn(accountIds) &
