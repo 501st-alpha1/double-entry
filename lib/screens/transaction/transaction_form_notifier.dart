@@ -43,6 +43,8 @@ class TransactionFormNotifier extends StateNotifier<TransactionFormState> {
       // switching type — avoids carrying over a stale override.
       budgetMonth: DateTime(state.date.year, state.date.month, 1),
       budgetMonthManuallySet: false,
+      hasExistingPayeeTemplate: false,
+      saveAsDefaultTemplate: false,
     );
   }
 
@@ -71,6 +73,12 @@ class TransactionFormNotifier extends StateNotifier<TransactionFormState> {
 
   void setNote(String note) => state = state.copyWith(note: note);
 
+  /// Toggles whether to overwrite the payee's default template on save.
+  /// Only meaningful when hasExistingPayeeTemplate is true.
+  void setSaveAsDefaultTemplate(bool value) {
+    state = state.copyWith(saveAsDefaultTemplate: value);
+  }
+
   /// Called when the user types in the payee field.
   /// Only clears the resolved payee if the name no longer matches it.
   void setPayeeRaw(String name) {
@@ -78,29 +86,73 @@ class TransactionFormNotifier extends StateNotifier<TransactionFormState> {
     final nameMatchesSelected =
         currentPayee != null && currentPayee.name == name.trim();
     if (nameMatchesSelected) return;
-    state = state.copyWith(payeeNameRaw: name, clearPayee: true);
+    state = state.copyWith(
+      payeeNameRaw: name,
+      clearPayee: true,
+      hasExistingPayeeTemplate: false,
+      saveAsDefaultTemplate: false,
+    );
   }
 
   /// Called when the user selects a payee from the typeahead.
-  /// Autofills posting rows from the payee's default template if available.
-  void selectPayee(Payee payee) {
+  /// Autofills posting rows from the payee's default template, if one
+  /// exists. Templates only apply to expense transactions.
+  Future<void> selectPayee(Payee payeeStub) async {
     List<PostingFormRow> formRows = [];
+    Payee payee = payeeStub;
 
-    if (payee.templates.isNotEmpty) {
-      final template = payee.defaultTemplate;
-      final rows = template.postingTemplates
-          .where((t) => !t.isBudgetMirror)
-          .toList();
+    if (state.type == TransactionType.expense) {
+      final payeeDao = _ref.read(payeeDaoProvider);
+      final accountDao = _ref.read(accountDaoProvider);
+      final templateRow = await payeeDao.findDefaultTemplate(payeeStub.id);
 
-      formRows = rows.asMap().entries.map((e) => PostingFormRow(
-            rowId: _uuid.v4(),
-            account: e.value.account,
-            amountRaw: e.value.defaultAmountMilliunits != null
-                ? _milliunitsToRaw(e.value.defaultAmountMilliunits!)
-                : '',
-            memo: e.value.memo,
-            isSource: e.key == 0,
-          )).toList();
+      if (templateRow != null) {
+        final postingRows =
+            await payeeDao.postingsForTemplate(templateRow.id);
+
+        final postingTemplates = <PostingTemplate>[];
+        for (final p in postingRows) {
+          final accountRow = await accountDao.findById(p.accountId);
+          if (accountRow == null) continue;
+          postingTemplates.add(PostingTemplate(
+            account: Account(
+              id: accountRow.id,
+              ledgerName: accountRow.ledgerName,
+              ynabId: accountRow.ynabId,
+              ynabName: accountRow.ynabName,
+            ),
+            defaultAmountMilliunits: p.defaultAmountMilliunits,
+            memo: p.memo,
+            isBudgetMirror: p.isBudgetMirror,
+            applyDefaultAmount: p.applyDefaultAmount,
+          ));
+        }
+
+        final template = PayeeTemplate(
+          id: templateRow.id,
+          name: templateRow.name,
+          transactionType: TransactionType.expense,
+          postingTemplates: postingTemplates,
+        );
+        payee = payeeStub.copyWith(templates: [template]);
+
+        final rows = template.postingTemplates
+            .where((t) => !t.isBudgetMirror)
+            .toList();
+
+        formRows = rows.asMap().entries.map((e) => PostingFormRow(
+              rowId: _uuid.v4(),
+              account: e.value.account,
+              // Amount autofill is gated on applyDefaultAmount, which is
+              // always false for now — reserved for a future toggle.
+              amountRaw: e.value.applyDefaultAmount &&
+                      e.value.defaultAmountMilliunits != null
+                  ? _milliunitsToRaw(e.value.defaultAmountMilliunits!)
+                  : '',
+              memo: e.value.memo,
+              isSource: e.key == 0,
+            )).toList();
+      }
     }
 
     state = state.copyWith(
@@ -109,6 +161,9 @@ class TransactionFormNotifier extends StateNotifier<TransactionFormState> {
       postingRows: formRows.isEmpty
           ? [PostingFormRow(rowId: _uuid.v4(), isSource: true)]
           : formRows,
+      // A template already exists for this payee — show the "Save as
+      // default" checkbox at save time, defaulted off.
+      hasExistingPayeeTemplate: payee.templates.isNotEmpty,
     );
   }
 
@@ -353,6 +408,9 @@ class TransactionFormNotifier extends StateNotifier<TransactionFormState> {
         }
       }
 
+      // Save/update the payee's default template (expense transactions only)
+      await _saveDefaultTemplateIfNeeded(payeeId, payeeDao);
+
       state = state.copyWith(isSaving: false);
       return true;
     } catch (e) {
@@ -372,9 +430,6 @@ class TransactionFormNotifier extends StateNotifier<TransactionFormState> {
       PayeeDao payeeDao, bool saveDefaults,
       {String? effectivePayeeName}) async {
     if (state.payee != null) {
-      if (saveDefaults) {
-        // TODO: update payee default template from current posting rows
-      }
       return state.payee!.id;
     }
 
@@ -387,6 +442,58 @@ class TransactionFormNotifier extends StateNotifier<TransactionFormState> {
       db.PayeesCompanion.insert(id: id, name: name),
     );
     return id;
+  }
+
+  /// Creates or updates the payee's "default" template from the current
+  /// real (non-mirror) posting rows. Expense transactions only.
+  ///
+  /// - If no default template exists yet for this payee, one is created
+  ///   silently — there's nothing to overwrite yet.
+  /// - If one already exists, it's only overwritten when the user checked
+  ///   "Save as default" (state.saveAsDefaultTemplate).
+  Future<void> _saveDefaultTemplateIfNeeded(
+      String? payeeId, PayeeDao payeeDao) async {
+    if (state.type != TransactionType.expense) return;
+    if (payeeId == null) return;
+
+    final existing = await payeeDao.findDefaultTemplate(payeeId);
+    if (existing != null && !state.saveAsDefaultTemplate) return;
+
+    final templateId = existing?.id ?? _uuid.v4();
+    if (existing == null) {
+      await payeeDao.upsertTemplate(
+        db.PayeeTemplatesCompanion.insert(
+          id: templateId,
+          payeeId: payeeId,
+          name: 'default',
+          transactionType: TransactionType.expense.name,
+        ),
+      );
+    }
+
+    final postingCompanions = <db.PostingTemplatesCompanion>[];
+    int sortOrder = 0;
+    for (final row in state.postingRows) {
+      if (row.account == null) continue;
+      final accountId = await _resolveOrCreateAccount(
+        row.account!.ledgerName,
+        existingId: row.account!.id.isNotEmpty ? row.account!.id : null,
+      );
+      postingCompanions.add(db.PostingTemplatesCompanion.insert(
+        id: _uuid.v4(),
+        payeeTemplateId: templateId,
+        accountId: accountId,
+        defaultAmountMilliunits: Value(row.amountMilliunits),
+        memo: Value(row.memo),
+        isBudgetMirror: const Value(false),
+        // Amount auto-apply on selection is not yet exposed in the UI —
+        // always saved as false for now, see PostingTemplate docs.
+        applyDefaultAmount: const Value(false),
+        sortOrder: Value(sortOrder++),
+      ));
+    }
+
+    await payeeDao.replacePostingTemplates(templateId, postingCompanions);
   }
 
   /// Finds an account by ledgerName or creates a minimal record if not found.

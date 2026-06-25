@@ -12,11 +12,18 @@ class PostingTemplate {
   final String? memo;
   final bool isBudgetMirror;
 
+  /// Whether autofill should pre-fill the amount from
+  /// defaultAmountMilliunits. Always false for now — reserved for a
+  /// future "remember amount" toggle. The amount is still saved/updated
+  /// on every save regardless of this flag.
+  final bool applyDefaultAmount;
+
   const PostingTemplate({
     required this.account,
     this.defaultAmountMilliunits,
     this.memo,
     this.isBudgetMirror = false,
+    this.applyDefaultAmount = false,
   });
 
   PostingTemplate copyWith({
@@ -24,6 +31,7 @@ class PostingTemplate {
     int? defaultAmountMilliunits,
     String? memo,
     bool? isBudgetMirror,
+    bool? applyDefaultAmount,
   }) {
     return PostingTemplate(
       account: account ?? this.account,
@@ -31,6 +39,7 @@ class PostingTemplate {
           defaultAmountMilliunits ?? this.defaultAmountMilliunits,
       memo: memo ?? this.memo,
       isBudgetMirror: isBudgetMirror ?? this.isBudgetMirror,
+      applyDefaultAmount: applyDefaultAmount ?? this.applyDefaultAmount,
     );
   }
 }

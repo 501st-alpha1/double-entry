@@ -60,6 +60,13 @@ class PostingTemplates extends Table {
   TextColumn get memo => text().nullable()();
   BoolColumn get isBudgetMirror => boolean().withDefault(const Constant(false))();
 
+  /// Whether autofill should pre-fill the amount from
+  /// defaultAmountMilliunits. Currently always false — amounts are
+  /// remembered but not yet auto-applied; reserved for a future "remember
+  /// amount" toggle.
+  BoolColumn get applyDefaultAmount =>
+      boolean().withDefault(const Constant(false))();
+
   /// Display order within the template
   IntColumn get sortOrder => integer().withDefault(const Constant(0))();
 
@@ -146,7 +153,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -160,6 +167,9 @@ class AppDatabase extends _$AppDatabase {
       }
       if (from < 4) {
         await m.addColumn(transactions, transactions.budgetMonth);
+      }
+      if (from < 5) {
+        await m.addColumn(postingTemplates, postingTemplates.applyDefaultAmount);
       }
     },
   );
@@ -356,11 +366,34 @@ class PayeeDao {
             ..where((t) => t.payeeId.equals(payeeId)))
           .get();
 
+  /// Finds the "default" template for a payee, if one exists.
+  /// Templates are expense-only — there is no per-transaction-type lookup.
+  Future<PayeeTemplateRow?> findDefaultTemplate(String payeeId) =>
+      (_db.select(_db.payeeTemplates)
+            ..where((t) =>
+                t.payeeId.equals(payeeId) & t.name.equals('default')))
+          .getSingleOrNull();
+
   Future<List<PostingTemplateRow>> postingsForTemplate(String templateId) =>
       (_db.select(_db.postingTemplates)
             ..where((p) => p.payeeTemplateId.equals(templateId))
             ..orderBy([(p) => OrderingTerm.asc(p.sortOrder)]))
           .get();
+
+  /// Replaces all posting templates for [templateId] with [postings].
+  /// Used when saving a payee's default template — the new set of
+  /// postings fully replaces the old set rather than merging with it.
+  Future<void> replacePostingTemplates(
+    String templateId,
+    List<PostingTemplatesCompanion> postings,
+  ) async {
+    await (_db.delete(_db.postingTemplates)
+          ..where((p) => p.payeeTemplateId.equals(templateId)))
+        .go();
+    for (final posting in postings) {
+      await _db.into(_db.postingTemplates).insert(posting);
+    }
+  }
 
   Stream<List<PayeeRow>> watchSearch(String query) {
     final q = '%${query.toLowerCase()}%';

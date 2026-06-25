@@ -86,6 +86,18 @@ class TransactionFormState {
   /// While false, budgetMonth auto-follows changes to [date]'s month.
   final bool budgetMonthManuallySet;
 
+  /// True if the currently-selected payee already has a saved default
+  /// template. Drives whether the "Save as default" checkbox is shown —
+  /// when false (no template yet), one is created silently on save with
+  /// no checkbox needed.
+  final bool hasExistingPayeeTemplate;
+
+  /// Whether to overwrite the payee's default template on save. Only
+  /// meaningful (and only shown in the UI) when [hasExistingPayeeTemplate]
+  /// is true. Defaults to false so a one-off entry doesn't silently
+  /// overwrite an established default.
+  final bool saveAsDefaultTemplate;
+
   TransactionFormState({
     this.type = TransactionType.expense,
     required this.date,
@@ -99,6 +111,8 @@ class TransactionFormState {
     this.budgetMovePayee,
     DateTime? budgetMonth,
     this.budgetMonthManuallySet = false,
+    this.hasExistingPayeeTemplate = false,
+    this.saveAsDefaultTemplate = false,
   }) : budgetMonth = budgetMonth ?? DateTime(date.year, date.month, 1);
 
   /// The sum of all posting amounts in milliunits.
@@ -158,6 +172,8 @@ class TransactionFormState {
     String? budgetMovePayee,
     DateTime? budgetMonth,
     bool? budgetMonthManuallySet,
+    bool? hasExistingPayeeTemplate,
+    bool? saveAsDefaultTemplate,
   }) {
     return TransactionFormState(
       type: type ?? this.type,
@@ -173,6 +189,10 @@ class TransactionFormState {
       budgetMonth: budgetMonth ?? this.budgetMonth,
       budgetMonthManuallySet:
           budgetMonthManuallySet ?? this.budgetMonthManuallySet,
+      hasExistingPayeeTemplate:
+          hasExistingPayeeTemplate ?? this.hasExistingPayeeTemplate,
+      saveAsDefaultTemplate:
+          saveAsDefaultTemplate ?? this.saveAsDefaultTemplate,
     );
   }
 }

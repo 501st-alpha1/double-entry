@@ -117,6 +117,10 @@ class _TransactionScreenState extends ConsumerState<TransactionScreen> {
 
             // Note field
             _NoteField(),
+            const SizedBox(height: 8),
+            if (formState.type == TransactionType.expense &&
+                formState.hasExistingPayeeTemplate)
+              _SaveAsDefaultCheckbox(),
             const SizedBox(height: 24),
 
             // Save buttons
@@ -646,6 +650,32 @@ class _NoteField extends ConsumerWidget {
       ),
       maxLines: 2,
       onChanged: notifier.setNote,
+    );
+  }
+}
+
+/// Shown only when the selected payee already has a saved default
+/// template, letting the user opt in to overwriting it with the current
+/// postings. Unchecked by default so a one-off entry doesn't silently
+/// replace the established default.
+class _SaveAsDefaultCheckbox extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(transactionFormProvider);
+    final notifier = ref.read(transactionFormProvider.notifier);
+
+    return CheckboxListTile(
+      contentPadding: EdgeInsets.zero,
+      controlAffinity: ListTileControlAffinity.leading,
+      dense: true,
+      value: state.saveAsDefaultTemplate,
+      onChanged: (value) => notifier.setSaveAsDefaultTemplate(value ?? false),
+      title: const Text('Save as default for this payee'),
+      subtitle: Text(
+        'Updates the accounts ${state.payee?.name ?? 'this payee'} '
+        'autofills next time.',
+        style: Theme.of(context).textTheme.bodySmall,
+      ),
     );
   }
 }
