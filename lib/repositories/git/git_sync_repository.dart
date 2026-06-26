@@ -51,8 +51,28 @@ class GitSyncRepository {
   /// Clones the remote repo (single branch) if not already cloned.
   /// Creates the branch as an orphan if it doesn't exist on the remote.
   Future<void> ensureCloned() async {
-    if (await isCloned()) return;
+    if (await isCloned()) {
+      await _syncRemoteUrl();
+      return;
+    }
     await _clone();
+  }
+
+  /// Ensures the 'origin' remote URL matches the configured remoteUrl.
+  /// Settings may have changed since the repo was first cloned.
+  Future<void> _syncRemoteUrl() async {
+    final repoPath = await localRepoPath();
+    final repo = Repository.open(repoPath);
+    try {
+      final remote = Remote.lookup(repo: repo, name: 'origin');
+      if (remote.url != remoteUrl) {
+        debugPrint('Git: remote URL changed from ${remote.url} to $remoteUrl, updating');
+        Remote.setUrl(repo: repo, remote: 'origin', url: remoteUrl);
+      }
+      remote.free();
+    } finally {
+      repo.free();
+    }
   }
 
   /// Commits the current state of the target file and pushes to remote.
