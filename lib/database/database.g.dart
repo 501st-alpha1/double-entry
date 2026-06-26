@@ -848,6 +848,16 @@ class $PostingTemplatesTable extends PostingTemplates
       defaultConstraints: GeneratedColumn.constraintIsAlways(
           'CHECK ("is_budget_mirror" IN (0, 1))'),
       defaultValue: const Constant(false));
+  static const VerificationMeta _applyDefaultAmountMeta =
+      const VerificationMeta('applyDefaultAmount');
+  @override
+  late final GeneratedColumn<bool> applyDefaultAmount = GeneratedColumn<bool>(
+      'apply_default_amount', aliasedName, false,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: false,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("apply_default_amount" IN (0, 1))'),
+      defaultValue: const Constant(false));
   static const VerificationMeta _sortOrderMeta =
       const VerificationMeta('sortOrder');
   @override
@@ -864,6 +874,7 @@ class $PostingTemplatesTable extends PostingTemplates
         defaultAmountMilliunits,
         memo,
         isBudgetMirror,
+        applyDefaultAmount,
         sortOrder
       ];
   @override
@@ -912,6 +923,12 @@ class $PostingTemplatesTable extends PostingTemplates
           isBudgetMirror.isAcceptableOrUnknown(
               data['is_budget_mirror']!, _isBudgetMirrorMeta));
     }
+    if (data.containsKey('apply_default_amount')) {
+      context.handle(
+          _applyDefaultAmountMeta,
+          applyDefaultAmount.isAcceptableOrUnknown(
+              data['apply_default_amount']!, _applyDefaultAmountMeta));
+    }
     if (data.containsKey('sort_order')) {
       context.handle(_sortOrderMeta,
           sortOrder.isAcceptableOrUnknown(data['sort_order']!, _sortOrderMeta));
@@ -938,6 +955,8 @@ class $PostingTemplatesTable extends PostingTemplates
           .read(DriftSqlType.string, data['${effectivePrefix}memo']),
       isBudgetMirror: attachedDatabase.typeMapping
           .read(DriftSqlType.bool, data['${effectivePrefix}is_budget_mirror'])!,
+      applyDefaultAmount: attachedDatabase.typeMapping.read(
+          DriftSqlType.bool, data['${effectivePrefix}apply_default_amount'])!,
       sortOrder: attachedDatabase.typeMapping
           .read(DriftSqlType.int, data['${effectivePrefix}sort_order'])!,
     );
@@ -958,6 +977,12 @@ class PostingTemplateRow extends DataClass
   final String? memo;
   final bool isBudgetMirror;
 
+  /// Whether autofill should pre-fill the amount from
+  /// defaultAmountMilliunits. Currently always false — amounts are
+  /// remembered but not yet auto-applied; reserved for a future "remember
+  /// amount" toggle.
+  final bool applyDefaultAmount;
+
   /// Display order within the template
   final int sortOrder;
   const PostingTemplateRow(
@@ -967,6 +992,7 @@ class PostingTemplateRow extends DataClass
       this.defaultAmountMilliunits,
       this.memo,
       required this.isBudgetMirror,
+      required this.applyDefaultAmount,
       required this.sortOrder});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -981,6 +1007,7 @@ class PostingTemplateRow extends DataClass
       map['memo'] = Variable<String>(memo);
     }
     map['is_budget_mirror'] = Variable<bool>(isBudgetMirror);
+    map['apply_default_amount'] = Variable<bool>(applyDefaultAmount);
     map['sort_order'] = Variable<int>(sortOrder);
     return map;
   }
@@ -995,6 +1022,7 @@ class PostingTemplateRow extends DataClass
           : Value(defaultAmountMilliunits),
       memo: memo == null && nullToAbsent ? const Value.absent() : Value(memo),
       isBudgetMirror: Value(isBudgetMirror),
+      applyDefaultAmount: Value(applyDefaultAmount),
       sortOrder: Value(sortOrder),
     );
   }
@@ -1010,6 +1038,7 @@ class PostingTemplateRow extends DataClass
           serializer.fromJson<int?>(json['defaultAmountMilliunits']),
       memo: serializer.fromJson<String?>(json['memo']),
       isBudgetMirror: serializer.fromJson<bool>(json['isBudgetMirror']),
+      applyDefaultAmount: serializer.fromJson<bool>(json['applyDefaultAmount']),
       sortOrder: serializer.fromJson<int>(json['sortOrder']),
     );
   }
@@ -1024,6 +1053,7 @@ class PostingTemplateRow extends DataClass
           serializer.toJson<int?>(defaultAmountMilliunits),
       'memo': serializer.toJson<String?>(memo),
       'isBudgetMirror': serializer.toJson<bool>(isBudgetMirror),
+      'applyDefaultAmount': serializer.toJson<bool>(applyDefaultAmount),
       'sortOrder': serializer.toJson<int>(sortOrder),
     };
   }
@@ -1035,6 +1065,7 @@ class PostingTemplateRow extends DataClass
           Value<int?> defaultAmountMilliunits = const Value.absent(),
           Value<String?> memo = const Value.absent(),
           bool? isBudgetMirror,
+          bool? applyDefaultAmount,
           int? sortOrder}) =>
       PostingTemplateRow(
         id: id ?? this.id,
@@ -1045,6 +1076,7 @@ class PostingTemplateRow extends DataClass
             : this.defaultAmountMilliunits,
         memo: memo.present ? memo.value : this.memo,
         isBudgetMirror: isBudgetMirror ?? this.isBudgetMirror,
+        applyDefaultAmount: applyDefaultAmount ?? this.applyDefaultAmount,
         sortOrder: sortOrder ?? this.sortOrder,
       );
   PostingTemplateRow copyWithCompanion(PostingTemplatesCompanion data) {
@@ -1061,6 +1093,9 @@ class PostingTemplateRow extends DataClass
       isBudgetMirror: data.isBudgetMirror.present
           ? data.isBudgetMirror.value
           : this.isBudgetMirror,
+      applyDefaultAmount: data.applyDefaultAmount.present
+          ? data.applyDefaultAmount.value
+          : this.applyDefaultAmount,
       sortOrder: data.sortOrder.present ? data.sortOrder.value : this.sortOrder,
     );
   }
@@ -1074,14 +1109,22 @@ class PostingTemplateRow extends DataClass
           ..write('defaultAmountMilliunits: $defaultAmountMilliunits, ')
           ..write('memo: $memo, ')
           ..write('isBudgetMirror: $isBudgetMirror, ')
+          ..write('applyDefaultAmount: $applyDefaultAmount, ')
           ..write('sortOrder: $sortOrder')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, payeeTemplateId, accountId,
-      defaultAmountMilliunits, memo, isBudgetMirror, sortOrder);
+  int get hashCode => Object.hash(
+      id,
+      payeeTemplateId,
+      accountId,
+      defaultAmountMilliunits,
+      memo,
+      isBudgetMirror,
+      applyDefaultAmount,
+      sortOrder);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1092,6 +1135,7 @@ class PostingTemplateRow extends DataClass
           other.defaultAmountMilliunits == this.defaultAmountMilliunits &&
           other.memo == this.memo &&
           other.isBudgetMirror == this.isBudgetMirror &&
+          other.applyDefaultAmount == this.applyDefaultAmount &&
           other.sortOrder == this.sortOrder);
 }
 
@@ -1102,6 +1146,7 @@ class PostingTemplatesCompanion extends UpdateCompanion<PostingTemplateRow> {
   final Value<int?> defaultAmountMilliunits;
   final Value<String?> memo;
   final Value<bool> isBudgetMirror;
+  final Value<bool> applyDefaultAmount;
   final Value<int> sortOrder;
   final Value<int> rowid;
   const PostingTemplatesCompanion({
@@ -1111,6 +1156,7 @@ class PostingTemplatesCompanion extends UpdateCompanion<PostingTemplateRow> {
     this.defaultAmountMilliunits = const Value.absent(),
     this.memo = const Value.absent(),
     this.isBudgetMirror = const Value.absent(),
+    this.applyDefaultAmount = const Value.absent(),
     this.sortOrder = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -1121,6 +1167,7 @@ class PostingTemplatesCompanion extends UpdateCompanion<PostingTemplateRow> {
     this.defaultAmountMilliunits = const Value.absent(),
     this.memo = const Value.absent(),
     this.isBudgetMirror = const Value.absent(),
+    this.applyDefaultAmount = const Value.absent(),
     this.sortOrder = const Value.absent(),
     this.rowid = const Value.absent(),
   })  : id = Value(id),
@@ -1133,6 +1180,7 @@ class PostingTemplatesCompanion extends UpdateCompanion<PostingTemplateRow> {
     Expression<int>? defaultAmountMilliunits,
     Expression<String>? memo,
     Expression<bool>? isBudgetMirror,
+    Expression<bool>? applyDefaultAmount,
     Expression<int>? sortOrder,
     Expression<int>? rowid,
   }) {
@@ -1144,6 +1192,8 @@ class PostingTemplatesCompanion extends UpdateCompanion<PostingTemplateRow> {
         'default_amount_milliunits': defaultAmountMilliunits,
       if (memo != null) 'memo': memo,
       if (isBudgetMirror != null) 'is_budget_mirror': isBudgetMirror,
+      if (applyDefaultAmount != null)
+        'apply_default_amount': applyDefaultAmount,
       if (sortOrder != null) 'sort_order': sortOrder,
       if (rowid != null) 'rowid': rowid,
     });
@@ -1156,6 +1206,7 @@ class PostingTemplatesCompanion extends UpdateCompanion<PostingTemplateRow> {
       Value<int?>? defaultAmountMilliunits,
       Value<String?>? memo,
       Value<bool>? isBudgetMirror,
+      Value<bool>? applyDefaultAmount,
       Value<int>? sortOrder,
       Value<int>? rowid}) {
     return PostingTemplatesCompanion(
@@ -1166,6 +1217,7 @@ class PostingTemplatesCompanion extends UpdateCompanion<PostingTemplateRow> {
           defaultAmountMilliunits ?? this.defaultAmountMilliunits,
       memo: memo ?? this.memo,
       isBudgetMirror: isBudgetMirror ?? this.isBudgetMirror,
+      applyDefaultAmount: applyDefaultAmount ?? this.applyDefaultAmount,
       sortOrder: sortOrder ?? this.sortOrder,
       rowid: rowid ?? this.rowid,
     );
@@ -1193,6 +1245,9 @@ class PostingTemplatesCompanion extends UpdateCompanion<PostingTemplateRow> {
     if (isBudgetMirror.present) {
       map['is_budget_mirror'] = Variable<bool>(isBudgetMirror.value);
     }
+    if (applyDefaultAmount.present) {
+      map['apply_default_amount'] = Variable<bool>(applyDefaultAmount.value);
+    }
     if (sortOrder.present) {
       map['sort_order'] = Variable<int>(sortOrder.value);
     }
@@ -1211,6 +1266,7 @@ class PostingTemplatesCompanion extends UpdateCompanion<PostingTemplateRow> {
           ..write('defaultAmountMilliunits: $defaultAmountMilliunits, ')
           ..write('memo: $memo, ')
           ..write('isBudgetMirror: $isBudgetMirror, ')
+          ..write('applyDefaultAmount: $applyDefaultAmount, ')
           ..write('sortOrder: $sortOrder, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -3271,6 +3327,7 @@ typedef $$PostingTemplatesTableCreateCompanionBuilder
   Value<int?> defaultAmountMilliunits,
   Value<String?> memo,
   Value<bool> isBudgetMirror,
+  Value<bool> applyDefaultAmount,
   Value<int> sortOrder,
   Value<int> rowid,
 });
@@ -3282,6 +3339,7 @@ typedef $$PostingTemplatesTableUpdateCompanionBuilder
   Value<int?> defaultAmountMilliunits,
   Value<String?> memo,
   Value<bool> isBudgetMirror,
+  Value<bool> applyDefaultAmount,
   Value<int> sortOrder,
   Value<int> rowid,
 });
@@ -3343,6 +3401,10 @@ class $$PostingTemplatesTableFilterComposer
 
   ColumnFilters<bool> get isBudgetMirror => $composableBuilder(
       column: $table.isBudgetMirror,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get applyDefaultAmount => $composableBuilder(
+      column: $table.applyDefaultAmount,
       builder: (column) => ColumnFilters(column));
 
   ColumnFilters<int> get sortOrder => $composableBuilder(
@@ -3412,6 +3474,10 @@ class $$PostingTemplatesTableOrderingComposer
       column: $table.isBudgetMirror,
       builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<bool> get applyDefaultAmount => $composableBuilder(
+      column: $table.applyDefaultAmount,
+      builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<int> get sortOrder => $composableBuilder(
       column: $table.sortOrder, builder: (column) => ColumnOrderings(column));
 
@@ -3476,6 +3542,9 @@ class $$PostingTemplatesTableAnnotationComposer
 
   GeneratedColumn<bool> get isBudgetMirror => $composableBuilder(
       column: $table.isBudgetMirror, builder: (column) => column);
+
+  GeneratedColumn<bool> get applyDefaultAmount => $composableBuilder(
+      column: $table.applyDefaultAmount, builder: (column) => column);
 
   GeneratedColumn<int> get sortOrder =>
       $composableBuilder(column: $table.sortOrder, builder: (column) => column);
@@ -3551,6 +3620,7 @@ class $$PostingTemplatesTableTableManager extends RootTableManager<
             Value<int?> defaultAmountMilliunits = const Value.absent(),
             Value<String?> memo = const Value.absent(),
             Value<bool> isBudgetMirror = const Value.absent(),
+            Value<bool> applyDefaultAmount = const Value.absent(),
             Value<int> sortOrder = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
@@ -3561,6 +3631,7 @@ class $$PostingTemplatesTableTableManager extends RootTableManager<
             defaultAmountMilliunits: defaultAmountMilliunits,
             memo: memo,
             isBudgetMirror: isBudgetMirror,
+            applyDefaultAmount: applyDefaultAmount,
             sortOrder: sortOrder,
             rowid: rowid,
           ),
@@ -3571,6 +3642,7 @@ class $$PostingTemplatesTableTableManager extends RootTableManager<
             Value<int?> defaultAmountMilliunits = const Value.absent(),
             Value<String?> memo = const Value.absent(),
             Value<bool> isBudgetMirror = const Value.absent(),
+            Value<bool> applyDefaultAmount = const Value.absent(),
             Value<int> sortOrder = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
@@ -3581,6 +3653,7 @@ class $$PostingTemplatesTableTableManager extends RootTableManager<
             defaultAmountMilliunits: defaultAmountMilliunits,
             memo: memo,
             isBudgetMirror: isBudgetMirror,
+            applyDefaultAmount: applyDefaultAmount,
             sortOrder: sortOrder,
             rowid: rowid,
           ),
