@@ -56,3 +56,14 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+# The certificateCheck callback used for SSH host-key verification
+# (GitSyncRepository/HostKeyStore) requires a patched git2dart that
+# exposes Callbacks.certificateCheck — not yet released on pub.dev as of
+# writing.
+#
+dependency_overrides:
+  git2dart:
+    git:
+      url: https://github.com/501st-alpha1/git2dart.git
+      ref: certificate-check

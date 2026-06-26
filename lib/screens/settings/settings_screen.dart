@@ -4,8 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import '../../repositories/git/git_sync_repository.dart';
 import '../../repositories/ynab/ynab_client.dart';
 import '../../routing/router.dart';
+import '../../services/host_key_store.dart';
 import '../../services/settings_service.dart';
 import '../../services/ssh_key_service.dart';
 
@@ -66,6 +68,7 @@ class SettingsScreen extends ConsumerWidget {
               _GitBranchTile(branch: settings.gitBranch),
               _GitTargetFileTile(file: settings.gitTargetFile),
               _GitSshKeyTile(settings: settings),
+              _GitHostKeyTile(remoteUrl: settings.gitRemoteUrl),
             ],
 
             // ── Status ────────────────────────────────────
@@ -779,6 +782,78 @@ class _GitSshKeyTile extends ConsumerWidget {
           publicKey: settings.gitPublicKey ?? '',
         ),
       );
+    }
+  }
+}
+
+/// Shows the trusted SSH host key fingerprint (TOFU-pinned on first
+/// successful sync) and lets the user forget it, forcing re-verification
+/// on the next sync. Use this if the server's key legitimately changed.
+class _GitHostKeyTile extends ConsumerWidget {
+  final String? remoteUrl;
+  const _GitHostKeyTile({required this.remoteUrl});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (remoteUrl == null) return const SizedBox.shrink();
+
+    final host = GitSyncRepository.hostFromUrl(remoteUrl!);
+    final fingerprint = ref.watch(trustedHostKeyProvider(host));
+
+    return ListTile(
+      leading: Icon(
+        fingerprint != null ? Icons.verified_user_outlined : Icons.help_outline,
+        color: fingerprint != null
+            ? Theme.of(context).colorScheme.primary
+            : null,
+      ),
+      title: const Text('Trusted Host Key'),
+      subtitle: Text(fingerprint != null
+          ? '$host\nSHA256:$fingerprint'
+          : '$host — not yet verified (will prompt on next sync)'),
+      isThreeLine: fingerprint != null,
+      trailing: fingerprint != null
+          ? TextButton(
+              onPressed: () => _confirmForget(context, ref, host),
+              child: const Text('Forget'),
+            )
+          : null,
+    );
+  }
+
+  Future<void> _confirmForget(
+      BuildContext context, WidgetRef ref, String host) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Forget Host Key?'),
+        content: Text(
+          'The next sync will prompt you to verify and re-trust the SSH '
+          'host key for "$host". Only do this if you know the server\'s '
+          'key has legitimately changed.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            child: const Text('Forget'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await ref.read(trustedHostKeyProvider(host).notifier).forget();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Host key for $host forgotten.')),
+        );
+      }
     }
   }
 }

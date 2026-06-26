@@ -5,6 +5,7 @@ import 'package:git2dart/git2dart.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'app.dart';
 import 'database/database_provider.dart';
+import 'services/host_key_store.dart';
 import 'services/settings_service.dart';
 
 void main() async {
@@ -21,6 +22,7 @@ void main() async {
     const FlutterSecureStorage(),
     prefs,
   );
+  final hostKeyStore = HostKeyStore(prefs);
 
   // Pre-load settings so settingsProvider never starts in a loading state.
   final initialSettings = await settingsService.load();
@@ -31,6 +33,7 @@ void main() async {
         // Override the placeholder with the real database instance.
         databaseProvider.overrideWithValue(db),
         settingsServiceProvider.overrideWithValue(settingsService),
+        hostKeyStoreProvider.overrideWithValue(hostKeyStore),
         settingsProvider.overrideWith(
           (ref) => SettingsNotifier.withInitial(
             settingsService,

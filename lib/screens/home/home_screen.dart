@@ -384,10 +384,7 @@ extension _HomeScreenSync on HomeScreen {
         debugPrint('Git: gitRepo = $gitRepo');
         if (gitRepo != null) {
           debugPrint('Git: calling commitAndPush...');
-          await gitRepo.commitAndPush(
-            authorName: 'Double Entry',
-            authorEmail: 'double_entry@localhost',
-          );
+          await _commitAndPushWithHostKeyPrompt(context, ref, gitRepo);
           gitSuccess = true;
           debugPrint('Git: commitAndPush succeeded');
           await ref
@@ -395,6 +392,15 @@ extension _HomeScreenSync on HomeScreen {
               .setGitSyncStatus(GitSyncStatus.upToDate);
         } else {
           debugPrint('Git: gitRepo is null — check git settings configuration');
+        }
+      } on HostKeyMismatchException catch (e) {
+        debugPrint('Git host key mismatch: $e');
+        gitError = 'Host key changed unexpectedly — sync aborted';
+        await ref
+            .read(settingsProvider.notifier)
+            .setGitSyncStatus(GitSyncStatus.failed);
+        if (context.mounted) {
+          await _showHostKeyMismatchDialog(context, e);
         }
       } catch (e, st) {
         debugPrint('Git sync error: $e\n$st');
@@ -448,6 +454,145 @@ extension _HomeScreenSync on HomeScreen {
       builder: (context) => const _UnlinkedAccountsDialog(),
     );
     return result ?? false;
+  }
+
+  /// Calls [gitRepo.commitAndPush], handling the first-time-unknown-host
+  /// case interactively: if the host has never been seen before, the push
+  /// is rejected by design (see GitSyncRepository._certificateCheck) so we
+  /// can surface the fingerprint to the user before trusting it. If they
+  /// accept, the fingerprint is stored and the push is retried exactly
+  /// once. If they decline, the original exception propagates so the
+  /// caller's existing error handling reports the abort.
+  Future<void> _commitAndPushWithHostKeyPrompt(
+    BuildContext context,
+    WidgetRef ref,
+    GitSyncRepository gitRepo,
+  ) async {
+    try {
+      await gitRepo.commitAndPush(
+        authorName: 'Double Entry',
+        authorEmail: 'double_entry@localhost',
+      );
+    } on UnknownHostKeyException catch (e) {
+      if (!context.mounted) rethrow;
+      final accepted = await _showUnknownHostKeyDialog(context, e);
+      if (!accepted) rethrow;
+
+      await gitRepo.trustHost(e.host, e.fingerprint);
+
+      // Retry once now that the host is trusted. If this also fails
+      // (e.g. network issue, or the fingerprint changed again between
+      // the prompt and the retry), let it propagate normally — we don't
+      // want an unbounded prompt loop.
+      await gitRepo.commitAndPush(
+        authorName: 'Double Entry',
+        authorEmail: 'double_entry@localhost',
+      );
+    }
+  }
+
+  /// Prompts the user with an unrecognized host's SSH key fingerprint.
+  /// Returns true if they choose to trust it.
+  Future<bool> _showUnknownHostKeyDialog(
+    BuildContext context,
+    UnknownHostKeyException e,
+  ) async {
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Verify Git Server'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'The authenticity of host "${e.host}" can\'t be '
+              'automatically verified (no known_hosts file is available '
+              'on Android).',
+            ),
+            const SizedBox(height: 12),
+            const Text('SHA256 host key fingerprint:'),
+            const SizedBox(height: 4),
+            SelectableText(
+              e.fingerprint,
+              style: const TextStyle(
+                fontFamily: 'monospace',
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Compare this against the fingerprint shown by your Git '
+              'server/host (e.g. via its admin panel, or by running '
+              '`ssh-keyscan` against it from a trusted machine) before '
+              'continuing. If you trust it, it will be remembered for '
+              'future syncs.',
+              style: TextStyle(fontSize: 12),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Abort'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Trust & Continue'),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
+  }
+
+  /// Warns the user that a previously-trusted host's key has changed —
+  /// this could be a legitimate server change, but could also indicate a
+  /// man-in-the-middle attack. There is deliberately no one-tap
+  /// "trust anyway" action here; the user must go to Settings and
+  /// explicitly forget the old host key if they want to re-verify it,
+  /// the same friction a normal SSH client would impose.
+  Future<void> _showHostKeyMismatchDialog(
+    BuildContext context,
+    HostKeyMismatchException e,
+  ) async {
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('⚠️ Git Host Key Changed'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'The SSH host key for "${e.host}" does not match what was '
+              'previously trusted. This could mean the server was '
+              'legitimately reconfigured — or it could indicate someone '
+              'is intercepting the connection.',
+            ),
+            const SizedBox(height: 12),
+            Text('Expected: ${e.expectedFingerprint}',
+                style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
+            Text('Received: ${e.actualFingerprint}',
+                style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
+            const SizedBox(height: 12),
+            const Text(
+              'Sync has been aborted. If you\'re certain this change is '
+              'expected, go to Settings to forget the old host key before '
+              'syncing again.',
+              style: TextStyle(fontSize: 12),
+            ),
+          ],
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
   }
 }
 

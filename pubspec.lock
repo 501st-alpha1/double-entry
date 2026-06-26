@@ -395,10 +395,11 @@ packages:
   git2dart:
     dependency: "direct main"
     description:
-      name: git2dart
-      sha256: "316795845fe516c81cceb1bad3ca9c5fa3006af92c0be3d13c6df7016d88f5ff"
-      url: "https://pub.dev"
-    source: hosted
+      path: "."
+      ref: certificate-check
+      resolved-ref: bb9e1d9f42b069071a5e80efceb57ede435c9fa3
+      url: "https://github.com/501st-alpha1/git2dart.git"
+    source: git
     version: "0.5.0"
   git2dart_binaries:
     dependency: transitive
