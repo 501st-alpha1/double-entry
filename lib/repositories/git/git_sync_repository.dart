@@ -228,6 +228,7 @@ class GitSyncRepository {
   bool Function(CertificateHostkey, {required bool valid, required String host})
       _certificateCheck() {
     return (cert, {required valid, required host}) {
+      debugPrint('Git: certificateCheck callback invoked for host=$host valid=$valid');
       final fingerprint = _bestFingerprint(cert);
       final stored = hostKeyStore.fingerprintFor(host);
 
