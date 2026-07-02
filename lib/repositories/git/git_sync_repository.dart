@@ -182,28 +182,23 @@ class GitSyncRepository {
         .join(':');
   }
 
-  /// Picks the best available hash from a [CertificateHostkey], preferring
-  /// sha256 > sha1 > md5 > raw, since that's libssh2's own preference order
-  /// for which hashes a given build actually has available.
-  static String _bestFingerprint(CertificateHostkey cert) {
-    if (cert.available.contains(GitCertificateSsh.sha256) &&
-        cert.sha256.isNotEmpty) {
-      return _formatFingerprint(cert.sha256);
-    }
-    if (cert.available.contains(GitCertificateSsh.sha1) &&
-        cert.sha1.isNotEmpty) {
-      return _formatFingerprint(cert.sha1);
-    }
-    if (cert.available.contains(GitCertificateSsh.md5) &&
-        cert.md5.isNotEmpty) {
-      return _formatFingerprint(cert.md5);
-    }
-    // Last-resort fallback: raw key bytes, with no GitCertificateSsh.raw
-    // membership check (sha256/sha1/md5 are unavailable by this point on
-    // virtually every real libssh2 build; if rawHostkey is also empty
-    // here, _formatFingerprint just yields an empty string rather than
-    // throwing, which is an acceptable degenerate case for this fallback).
-    return _formatFingerprint(cert.rawHostkey);
+  /// Picks the best available hash from a [GitCertificateHostkey], preferring
+  /// sha256 > sha1 > md5 > raw.
+  static String _bestFingerprint(GitCertificateHostkey hostkey) {
+    final sha256 = hostkey.sha256;
+    if (sha256 != null && sha256.isNotEmpty) return _formatFingerprint(sha256);
+
+    final sha1 = hostkey.sha1;
+    if (sha1 != null && sha1.isNotEmpty) return _formatFingerprint(sha1);
+
+    final md5 = hostkey.md5;
+    if (md5 != null && md5.isNotEmpty) return _formatFingerprint(md5);
+
+    // Last-resort: raw key bytes. Returns empty string if also unavailable,
+    // which is an acceptable degenerate case — sha256/sha1/md5 are present on
+    // virtually every real libssh2 build.
+    final raw = hostkey.rawHostkey;
+    return raw != null ? _formatFingerprint(raw) : '';
   }
 
   /// Builds the certificateCheck callback used on every clone/fetch/push.
@@ -225,15 +220,24 @@ class GitSyncRepository {
   /// this can't simply await a confirmation dialog — the two-phase
   /// reject-then-retry flow above is the correct way to surface an
   /// interactive prompt around a fundamentally synchronous native callback.
-  bool Function(CertificateHostkey, {required bool valid, required String host})
+  bool Function(GitCertificate, String, {required bool valid})
       _certificateCheck() {
-    return (cert, {required valid, required host}) {
+    return (certificate, host, {required valid}) {
       debugPrint('Git: certificateCheck callback invoked for host=$host valid=$valid');
-      final fingerprint = _bestFingerprint(cert);
+
+      // We only handle SSH host keys — accept X.509 and unknown types
+      // without interference so HTTPS remotes work normally.
+      final hostkey = certificate.hostkey;
+      if (hostkey == null) {
+        debugPrint('Git: non-SSH certificate type=${certificate.type}, accepting');
+        return true;
+      }
+
+      final fingerprint = _bestFingerprint(hostkey);
       final stored = hostKeyStore.fingerprintFor(host);
 
       if (stored == null) {
-        debugPrint('Git: unknown host key for $host (SHA256:$fingerprint)');
+        debugPrint('Git: unknown host key for $host (fingerprint:$fingerprint)');
         _pendingUnknownHostKey = UnknownHostKeyException(host, fingerprint);
         return false;
       }
@@ -246,6 +250,7 @@ class GitSyncRepository {
         return false;
       }
 
+      debugPrint('Git: host key verified for $host');
       return true;
     };
   }

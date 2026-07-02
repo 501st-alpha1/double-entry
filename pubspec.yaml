@@ -65,5 +65,5 @@ flutter:
 dependency_overrides:
   git2dart:
     git:
-      url: https://github.com/501st-alpha1/git2dart.git
-      ref: certificate-check
+      url: https://github.com/DartGit-dev/git2dart.git
+      ref: 0.5.1
