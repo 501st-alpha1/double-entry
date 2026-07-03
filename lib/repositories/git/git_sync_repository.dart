@@ -273,8 +273,8 @@ class GitSyncRepository {
     _pendingHostKeyMismatch = null;
     try {
       return operation();
-    } on Git2DartError catch (e) {
-      debugPrint('Git: _withCertificateCheckTranslation caught Git2DartError: ${e.message}');
+    } catch (e) {
+      debugPrint('Git: _withCertificateCheckTranslation caught: ${e.runtimeType}: $e');
       debugPrint('Git: _pendingUnknownHostKey=$_pendingUnknownHostKey');
       debugPrint('Git: _pendingHostKeyMismatch=$_pendingHostKeyMismatch');
       if (_pendingHostKeyMismatch != null) {
