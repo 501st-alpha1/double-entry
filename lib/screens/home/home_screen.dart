@@ -474,9 +474,18 @@ extension _HomeScreenSync on HomeScreen {
         authorEmail: 'double_entry@localhost',
       );
     } on UnknownHostKeyException catch (e) {
-      if (!context.mounted) rethrow;
+      if (!context.mounted) {
+        // Can't show UI — treat as a regular failure so the banner appears
+        // and the user can retry next time the app is foregrounded.
+        throw GitSyncException(
+            'Unknown host key for ${e.host} — '
+            'retry sync to verify the server fingerprint.');
+      }
       final accepted = await _showUnknownHostKeyDialog(context, e);
-      if (!accepted) rethrow;
+      if (!accepted) {
+        throw GitSyncException(
+            'Sync aborted — host key for ${e.host} was not trusted.');
+      }
 
       await gitRepo.trustHost(e.host, e.fingerprint);
 
