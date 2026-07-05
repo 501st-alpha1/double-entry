@@ -402,13 +402,14 @@ packages:
     source: git
     version: "0.5.1"
   git2dart_binaries:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
-      name: git2dart_binaries
-      sha256: "4a9691c269403ba5570aae0d9768bce0a0a50c90bf26be13977e1685e56c1043"
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.11.2"
+      path: "."
+      ref: HEAD
+      resolved-ref: d75321e0033172939a14e03dff45c664dd3efb06
+      url: "https://github.com/501st-alpha1/git2dart_binaries.git"
+    source: git
+    version: "1.11.4"
   glob:
     dependency: transitive
     description:
