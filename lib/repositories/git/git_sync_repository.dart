@@ -277,12 +277,8 @@ class GitSyncRepository {
       debugPrint('Git: _withCertificateCheckTranslation caught: ${e.runtimeType}: $e');
       debugPrint('Git: _pendingUnknownHostKey=$_pendingUnknownHostKey');
       debugPrint('Git: _pendingHostKeyMismatch=$_pendingHostKeyMismatch');
-      if (_pendingHostKeyMismatch != null) {
-        throw _pendingHostKeyMismatch!;
-      }
-      if (_pendingUnknownHostKey != null) {
-        throw _pendingUnknownHostKey!;
-      }
+      if (_pendingHostKeyMismatch != null) throw _pendingHostKeyMismatch!;
+      if (_pendingUnknownHostKey != null) throw _pendingUnknownHostKey!;
       rethrow;
     }
   }
