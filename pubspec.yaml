@@ -54,6 +54,8 @@ dev_dependencies:
   # Linting
   flutter_lints: ^4.0.0
 
+  flutter_launcher_icons: ^0.14.0
+
 flutter:
   uses-material-design: true
 
@@ -70,3 +72,10 @@ dependency_overrides:
   git2dart_binaries:
     git:
       url: https://github.com/501st-alpha1/git2dart_binaries.git
+
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/icons/icon.png"
+  adaptive_icon_background: "assets/icons/icon_background.png"
+  adaptive_icon_foreground: "assets/icons/icon_foreground.png"
