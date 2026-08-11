@@ -338,6 +338,7 @@ extension _HomeScreenSync on HomeScreen {
     int ledgerSucceeded = 0, ledgerFailed = 0;
     bool gitSuccess = false;
     String? gitError;
+    String? ynabError;
 
     try {
       if (ynabSync != null) {
@@ -345,17 +346,17 @@ extension _HomeScreenSync on HomeScreen {
         ynabSucceeded = results.where((r) => r.success).length;
         ynabFailed = results.where((r) => !r.success).length;
         if (ynabFailed > 0) {
-          final errors = results
+          ynabError = results
               .where((r) => !r.success && r.error != null)
               .map((r) => r.error!)
               .join('; ');
-          debugPrint('YNAB sync failures: $errors');
-          gitError = errors; // reuse for display
+          debugPrint('YNAB sync failures: $ynabError');
         }
       }
     } catch (e, st) {
       debugPrint('YNAB sync exception: $e\n$st');
       ynabFailed++;
+      ynabError = e.toString();
     }
 
     try {
@@ -418,8 +419,12 @@ extension _HomeScreenSync on HomeScreen {
     final totalFailed = ynabFailed + ledgerFailed;
     final parts = <String>[];
     if (ynabSync != null) {
-      parts.add('YNAB: $ynabSucceeded synced'
-          '${ynabFailed > 0 ? ', $ynabFailed failed' : ''}');
+      if (ynabFailed > 0 && ynabError != null) {
+        parts.add('YNAB: $ynabSucceeded synced, $ynabFailed failed — $ynabError');
+      } else {
+        parts.add('YNAB: $ynabSucceeded synced'
+            '${ynabFailed > 0 ? ', $ynabFailed failed' : ''}');
+      }
     }
     if (ledgerSync != null) {
       parts.add('Ledger: $ledgerSucceeded synced'
@@ -433,12 +438,12 @@ extension _HomeScreenSync on HomeScreen {
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(parts.join(' · ')),
+        content: Text(parts.join('\n')),
         backgroundColor: (totalFailed > 0 || gitError != null)
             ? Theme.of(context).colorScheme.error
             : null,
         duration:
-            Duration(seconds: (totalFailed > 0 || gitError != null) ? 6 : 3),
+            Duration(seconds: (totalFailed > 0 || gitError != null) ? 8 : 3),
       ),
     );
   }
