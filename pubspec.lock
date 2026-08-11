@@ -406,7 +406,7 @@ packages:
     description:
       path: "."
       ref: HEAD
-      resolved-ref: d75321e0033172939a14e03dff45c664dd3efb06
+      resolved-ref: ad68c4ab8ed04c4865c189b1921220897d8f7f44
       url: "https://github.com/501st-alpha1/git2dart_binaries.git"
     source: git
     version: "1.11.4"
