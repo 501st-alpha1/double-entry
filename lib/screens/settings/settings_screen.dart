@@ -923,12 +923,12 @@ class _GenerateKeyDialogState extends ConsumerState<_GenerateKeyDialog> {
   }
 }
 
-class _ShowPublicKeyDialog extends StatelessWidget {
+class _ShowPublicKeyDialog extends ConsumerWidget {
   final String publicKey;
   const _ShowPublicKeyDialog({required this.publicKey});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return AlertDialog(
       title: const Text('SSH Public Key'),
       content: Column(
@@ -955,10 +955,48 @@ class _ShowPublicKeyDialog extends StatelessWidget {
       ),
       actions: [
         TextButton(
+          onPressed: () => _confirmDelete(context, ref),
+          style: TextButton.styleFrom(
+            foregroundColor: Theme.of(context).colorScheme.error,
+          ),
+          child: const Text('Delete Key'),
+        ),
+        FilledButton(
           onPressed: () => Navigator.pop(context),
           child: const Text('Done'),
         ),
       ],
     );
+  }
+
+  Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete SSH Key?'),
+        content: const Text(
+          'This will delete the private and public key from the app. '
+          'You will need to generate a new key and add it to Gitea before '
+          'Git sync will work again.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && context.mounted) {
+      await ref.read(settingsProvider.notifier).deleteGitKeyPair();
+      Navigator.pop(context); // close the public key dialog
+    }
   }
 }

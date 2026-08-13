@@ -184,6 +184,11 @@ class SettingsService {
   Future<void> setGitTargetFile(String file) =>
       _prefs.setString(_keyGitTargetFile, file);
 
+  Future<void> deleteGitKeyPair() async {
+    await _secure.delete(key: _keyGitPrivateKey);
+    await _prefs.remove(_keyGitPublicKey);
+  }
+
   Future<void> setYnabToken(String token) =>
       _secure.write(key: _keyYnabToken, value: token.trim());
 
@@ -300,6 +305,11 @@ class SettingsNotifier extends StateNotifier<AsyncValue<AppSettings>> {
 
   Future<void> setGitTargetFile(String file) async {
     await _service.setGitTargetFile(file);
+    await load();
+  }
+
+  Future<void> deleteGitKeyPair() async {
+    await _service.deleteGitKeyPair();
     await load();
   }
 
