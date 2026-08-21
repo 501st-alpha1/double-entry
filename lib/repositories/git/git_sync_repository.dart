@@ -173,32 +173,52 @@ class GitSyncRepository {
 
   String get _host => hostFromUrl(remoteUrl);
 
-  /// Formats raw host key bytes as a colon-separated hex fingerprint,
-  /// e.g. "AB:CD:EF:...". This is the conventional SSH fingerprint display
-  /// format (what `ssh-keygen -lf` and most SSH clients show).
-  static String _formatFingerprint(Uint8List bytes) {
+  /// Formats raw host key bytes as a hex fingerprint (MD5/SHA1 style),
+  /// e.g. "AB:CD:EF:..."
+  static String _formatHex(Uint8List bytes) {
     return bytes
         .map((b) => b.toRadixString(16).padLeft(2, '0').toUpperCase())
         .join(':');
   }
 
+  /// Formats raw host key bytes as unpadded base64 (SHA256 style),
+  /// matching the output of `ssh-keygen -lf`, e.g. "SHA256:abc123..."
+  static String _formatBase64(Uint8List bytes) {
+    const chars =
+        'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+    final result = StringBuffer();
+    for (int i = 0; i < bytes.length; i += 3) {
+      final b0 = bytes[i];
+      final b1 = i + 1 < bytes.length ? bytes[i + 1] : 0;
+      final b2 = i + 2 < bytes.length ? bytes[i + 2] : 0;
+      result.write(chars[(b0 >> 2) & 0x3F]);
+      result.write(chars[((b0 << 4) | (b1 >> 4)) & 0x3F]);
+      if (i + 1 < bytes.length) result.write(chars[((b1 << 2) | (b2 >> 6)) & 0x3F]);
+      if (i + 2 < bytes.length) result.write(chars[b2 & 0x3F]);
+    }
+    // No padding — matches ssh-keygen's output convention for fingerprints
+    return result.toString();
+  }
+
   /// Picks the best available hash from a [GitCertificateHostkey], preferring
-  /// sha256 > sha1 > md5 > raw.
+  /// sha256 > sha1 > md5 > raw. SHA256 is displayed as base64 (matching
+  /// ssh-keygen -lf output); MD5/SHA1 as colon-separated hex.
   static String _bestFingerprint(GitCertificateHostkey hostkey) {
     final sha256 = hostkey.sha256;
-    if (sha256 != null && sha256.isNotEmpty) return _formatFingerprint(sha256);
-
+    if (sha256 != null && sha256.isNotEmpty) {
+      return 'SHA256:${_formatBase64(sha256)}';
+    }
     final sha1 = hostkey.sha1;
-    if (sha1 != null && sha1.isNotEmpty) return _formatFingerprint(sha1);
+    if (sha1 != null && sha1.isNotEmpty) return 'SHA1:${_formatHex(sha1)}';
 
     final md5 = hostkey.md5;
-    if (md5 != null && md5.isNotEmpty) return _formatFingerprint(md5);
+    if (md5 != null && md5.isNotEmpty) return 'MD5:${_formatHex(md5)}';
 
     // Last-resort: raw key bytes. Returns empty string if also unavailable,
     // which is an acceptable degenerate case — sha256/sha1/md5 are present on
     // virtually every real libssh2 build.
     final raw = hostkey.rawHostkey;
-    return raw != null ? _formatFingerprint(raw) : '';
+    return raw != null ? _formatHex(raw) : '';
   }
 
   /// Builds the certificateCheck callback used on every clone/fetch/push.

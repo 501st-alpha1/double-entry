@@ -526,7 +526,7 @@ extension _HomeScreenSync on HomeScreen {
               'on Android).',
             ),
             const SizedBox(height: 12),
-            const Text('SHA256 host key fingerprint:'),
+            const Text('Host key fingerprint:'),
             const SizedBox(height: 4),
             SelectableText(
               e.fingerprint,
